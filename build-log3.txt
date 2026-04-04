@@ -1,0 +1,177 @@
+﻿cargo :    Compiling 
+quote v1.0.45
+En línea: 1 Carácter: 143
++ ... ay-channel; cargo 
+build --target 
+wasm32-unknown-unknown 
+--release -p  ...
++                 ~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (   
+    Compiling quote v1.   
+ 0.45:String) [], Remo    
+teException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+   Compiling hash32 v0.3.1
+   Compiling serde_json 
+v1.0.149
+   Compiling 
+generic-array v0.14.9
+   Compiling num-traits 
+v0.2.19
+   Compiling wasmparser 
+v0.116.1
+   Compiling heapless 
+v0.8.0
+   Compiling 
+data-encoding v2.10.0
+   Compiling syn v2.0.117
+   Compiling block-buffer 
+v0.10.4
+   Compiling 
+crypto-common v0.1.6
+   Compiling num-integer 
+v0.1.46
+   Compiling digest 
+v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling num-bigint 
+v0.4.6
+   Compiling darling_core 
+v0.23.0
+   Compiling darling_core 
+v0.20.11
+   Compiling prettyplease 
+v0.2.37
+   Compiling macro-string 
+v0.1.4
+   Compiling serde_derive 
+v1.0.228
+   Compiling cfg_eval 
+v0.1.2
+   Compiling 
+thiserror-impl v1.0.69
+   Compiling num-derive 
+v0.4.2
+   Compiling bytes-lit 
+v0.0.5
+   Compiling visibility 
+v0.1.1
+   Compiling thiserror 
+v1.0.69
+   Compiling 
+darling_macro v0.20.11
+   Compiling 
+darling_macro v0.23.0
+   Compiling darling 
+v0.20.11
+   Compiling darling 
+v0.23.0
+   Compiling serde 
+v1.0.228
+   Compiling 
+serde_with_macros v3.18.0
+   Compiling 
+crate-git-revision v0.0.6
+   Compiling schemars 
+v0.8.22
+   Compiling hex v0.4.3
+   Compiling 
+stellar-strkey v0.0.13
+   Compiling stellar-xdr 
+v25.0.0
+   Compiling 
+soroban-env-common v25.0.1
+   Compiling 
+stellar-strkey v0.0.16
+   Compiling soroban-sdk 
+v25.3.0
+   Compiling serde_with 
+v3.18.0
+error: failed to run 
+custom build command for 
+`soroban-env-common 
+v25.0.1`
+
+Caused by:
+  could not execute 
+process `C:\Users\Handi\De
+sktop\Meridian\contracts\o
+ne-way-channel\target\rele
+ase\build\soroban-env-comm
+on-83ff4727c5d17fcb\build-
+script-build` (never 
+executed)
+
+Caused by:
+  Una directiva de 
+Control de aplicaciones 
+bloque├│ este archivo. 
+(os error 4551)
+warning: build failed, 
+waiting for other jobs to 
+finish...
+error: failed to run 
+custom build command for 
+`soroban-env-common 
+v25.0.1`
+
+Caused by:
+  could not execute 
+process `C:\Users\Handi\De
+sktop\Meridian\contracts\o
+ne-way-channel\target\rele
+ase\build\soroban-env-comm
+on-83ff4727c5d17fcb\build-
+script-build` (never 
+executed)
+
+Caused by:
+  Una directiva de 
+Control de aplicaciones 
+bloque├│ este archivo. 
+(os error 4551)
+error[E0463]: can't find 
+crate for 
+`serde_with_macros`
+   --> C:\Users\Handi\Desk
+top\Meridian\.cargo\regist
+ry\src\index.crates.io-194
+9cf8c6b5b557f\serde_with-3
+.18.0\src\lib.rs:450:9
+    |
+450 | pub use 
+serde_with_macros::*;
+    |         
+^^^^^^^^^^^^^^^^^ can't 
+find crate
+
+error[E0432]: unresolved 
+import 
+`crate::prelude::Schema`
+  --> C:\Users\Handi\Deskt
+op\Meridian\.cargo\registr
+y\src\index.crates.io-1949
+cf8c6b5b557f\serde_with-3.
+18.0\src\schemars_0_8.rs:1
+0:15
+   |
+10 |     prelude::{Schema 
+as WrapSchema, *},
+   |               
+^^^^^^^^^^^^^^^^^^^^
+
+Some errors have detailed 
+explanations: E0432, 
+E0463.
+For more information 
+about an error, try 
+`rustc --explain E0432`.
+error: could not compile 
+`serde_with` (lib) due to 
+2 previous errors

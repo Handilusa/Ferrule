@@ -1,0 +1,27 @@
+{
+  "name": "ferrule",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pay-Per-Token AI Research Agent on Stellar — MPP Session channels + x402 payments",
+  "license": "MIT",
+  "workspaces": [
+    "apps/backend",
+    "apps/frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "build": "npm run build --workspace=apps/frontend"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.0"
+  },
+  "dependencies": {
+    "@stellar/mpp": "^0.4.0",
+    "mppx": "^0.4.12"
+  }
+}

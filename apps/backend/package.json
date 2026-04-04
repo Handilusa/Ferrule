@@ -1,0 +1,23 @@
+{
+  "name": "@ferrule/backend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "@stellar/mpp": "latest",
+    "@stellar/stellar-sdk": "^14.6.1",
+    "@x402/core": "latest",
+    "@x402/express": "latest",
+    "@x402/stellar": "latest",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mppx": "latest",
+    "ws": "^8.18.0"
+  }
+}

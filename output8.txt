@@ -1,0 +1,130 @@
+﻿
+­ƒöæ Nueva clave temporal generada para Search Agent:
+Public: GAP7SPNQ4CYHGVDK4IFTV5OFA3USWQERWZTP5JVZK5LY4YS25XHNIZB3
+Secret: SAG6BU2OO7NIAJCTXAJ3FWXH6UDE4MITSTVB45644OZTTU4OZIVOYEMG
+
+
+==== INICIANDO CONFIGURACI├ôN DE WALLETS ====
+Ô¡É MASTER Wallet (P├║blica): GDXD6KTOMS72LZV4AWMHY7LCIABFZIIZFUW3YRHA63QKKD42KW32JYL2
+
+---- FASE 1: Fondeo (Friendbot) y Trustlines ----
+
+ÔûÂ Procesando [Orchestrator] (GDXD6KTOMS72LZV4AWMHY7LCIABFZIIZFUW3YRHA63QKKD42KW32JYL2)...
+   - Fondeando XLM via Friendbot...
+   Ô£à XLM fondeado / Cuenta activa en Testnet
+   - Esperando 3 segundos por rate limits...
+   - Estableciendo trustline de USDC...
+  ÔÜá´©Å Trustline ya exist├¡a
+   Ô£à Trustline de USDC lista
+
+ÔûÂ Procesando [User Test] (GA5JRPO53ZW7IUCOB4GLWGJLMSTWIWVMMEBI3MFNVU3VWNFDTN7K3KWV)...
+   - Fondeando XLM via Friendbot...
+   Ô£à XLM fondeado / Cuenta activa en Testnet
+   - Esperando 3 segundos por rate limits...
+   - Estableciendo trustline de USDC...
+  ÔÜá´©Å Trustline ya exist├¡a
+   Ô£à Trustline de USDC lista
+
+ÔûÂ Procesando [LLM Agent] (GAZ7QU42ABJX7DNO77KJ3EJDI72ZXDHYK6GTWRRMLDACB7DXFHXELGDY)...
+   - Fondeando XLM via Friendbot...
+   Ô£à XLM fondeado / Cuenta activa en Testnet
+   - Esperando 3 segundos por rate limits...
+   - Estableciendo trustline de USDC...
+  ÔÜá´©Å Trustline ya exist├¡a
+   Ô£à Trustline de USDC lista
+
+ÔûÂ Procesando [Search Agent] (GAP7SPNQ4CYHGVDK4IFTV5OFA3USWQERWZTP5JVZK5LY4YS25XHNIZB3)...
+   - Fondeando XLM via Friendbot...
+   Ô£à XLM fondeado / Cuenta activa en Testnet
+   - Esperando 3 segundos por rate limits...
+   - Estableciendo trustline de USDC...
+   Ô£à Trustline de USDC lista
+
+---- FASE 2: Distribuci├│n de USDC desde MASTER ----
+
+ÔÅ¡  Omitiendo env├¡o para [Orchestrator] (Es la misma cuenta que MASTER)
+
+ÔûÂ Enviando 20 USDC a [User Test]...
+   ÔØî Error al enviar USDC
+
+ÔÅ¡  Omitiendo env├¡o para [LLM Agent] (Monto requerido = 0)
+
+ÔÅ¡  Omitiendo env├¡o para [Search Agent] (Monto requerido = 0)
+node.exe :     Detalles 
+Horizon: {
+En línea: 1 Carácter: 1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo      
+        : NotSpecified: 
+(        Detalles 
+Horizon:     {:String) 
+[], RemoteE    xception
+    + 
+FullyQualifiedError    
+Id : NativeCommandErr   
+ or
+ 
+  "envelope_xdr": "AAAAA
+gAAAADuPypuZL+l5rwFmHx9Y
+kACXKEZLS28ROD24KUPmlW3p
+AAAAGQAG+bjAAAAAwAAAAEAA
+AAAAAAAAAAAAABpzt5sAAAAA
+AAAAAEAAAAAAAAAAQAAAAA6m
+L3d3m30UE4PDLsZK2SnZFqsY
+QKNsK2tN1s0o5t+rQAAAAFVU
+0RDAAAAAEI+fQXy7K+/7BkrI
+Vo/G+lq7bjY5wJUq+NBPgIH3
+layAAAAAAvrwgAAAAAAAAAAA
+ZpVt6QAAABA2D+RTnYMROExB
+OvYrt5fccykXaFKs7sVef85p
+6u5EeLV1lVAmcaAhx91BlUDq
+rfWeozhNi0cP+mJb9POcf+SD
+A==",
+  "result_codes": {
+    "transaction": 
+"tx_failed",
+    "operations": [
+      "op_underfunded"
+    ]
+  },
+  "result_xdr": "AAAAAAA
+AAGT/////AAAAAQAAAAAAAAA
+B/////gAAAAA="
+}
+
+==================================
+     RESUMEN DE SALDOS FINALES    
+==================================
+
+­ƒÅª MASTER:
+­ƒöæ Public Key: GDXD6KTOMS72LZV4AWMHY7LCIABFZIIZFUW3YRHA63QKKD42KW32JYL2
+­ƒÆ░ XLM:  19999.9999700
+­ƒÆÁ USDC: 0.0000000
+
+­ƒÅª Orchestrator:
+­ƒöæ Public Key: GDXD6KTOMS72LZV4AWMHY7LCIABFZIIZFUW3YRHA63QKKD42KW32JYL2
+­ƒÆ░ XLM:  19999.9999700
+­ƒÆÁ USDC: 0.0000000
+
+­ƒÅª User Test:
+­ƒöæ Public Key: GA5JRPO53ZW7IUCOB4GLWGJLMSTWIWVMMEBI3MFNVU3VWNFDTN7K3KWV
+­ƒÆ░ XLM:  19999.9999900
+­ƒÆÁ USDC: 0.0000000
+
+­ƒÅª LLM Agent:
+­ƒöæ Public Key: GAZ7QU42ABJX7DNO77KJ3EJDI72ZXDHYK6GTWRRMLDACB7DXFHXELGDY
+­ƒÆ░ XLM:  19999.9999900
+­ƒÆÁ USDC: 0.0000000
+
+­ƒÅª Search Agent:
+­ƒöæ Public Key: GAP7SPNQ4CYHGVDK4IFTV5OFA3USWQERWZTP5JVZK5LY4YS25XHNIZB3
+­ƒÆ░ XLM:  9999.9999900
+­ƒÆÁ USDC: 0.0000000
+
+==================================
