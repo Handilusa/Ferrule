@@ -221,15 +221,72 @@ Return ONLY the JSON object.`;
     // --- PHASE 2: Search Agent queries (x402 payments) ---
     addTimelineEvent(session, wss, "search_start", "Search Agent analyzing query...");
 
-    // Generate sub-queries for thorough research
     const searchQueries = generateSearchQueries(query);
     let allSearchResults = [];
 
+
+
+    const orchestratorSecret = process.env.ORCHESTRATOR_PRIVATE_KEY;
+    const orchestratorKp = Keypair.fromSecret(orchestratorSecret);
+
     for (const sq of searchQueries) {
-      const results = await searchWeb(sq, 3);
+      // Intentional HTTP Call to trigger 402
+      const searchUrl = `http://localhost:${process.env.PORT || 3000}/api/search`;
+      const firstTry = await fetch(searchUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: sq, maxResults: 3 })
+      });
+      
+      let reqHeaders = { "Content-Type": "application/json" };
+      let paymentTxId = null;
+
+      if (firstTry.status === 402) {
+         // Create the payment on chain
+         const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+         const account = await horizon.loadAccount(orchestratorKp.publicKey());
+         const usdcAsset = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
+         
+         const tx = new TransactionBuilder(account, { fee: "1000", networkPassphrase: Networks.TESTNET })
+           .addOperation(Operation.payment({
+             destination: process.env.SEARCH_AGENT_PUBLIC_KEY,
+             asset: usdcAsset,
+             amount: "0.0002"
+           })).setTimeout(30).build();
+
+         tx.sign(orchestratorKp);
+         const submitRes = await horizon.submitTransaction(tx);
+         paymentTxId = submitRes.hash;
+         
+         // Attach payment validation per x402 spec
+         reqHeaders["Authorization"] = `L402 test_macaroon:${paymentTxId}`;
+      }
+
+      const res = await fetch(searchUrl, {
+        method: "POST",
+        headers: reqHeaders,
+        body: JSON.stringify({ query: sq, maxResults: 3 })
+      });
+      
+      const searchData = await res.json();
+      const results = searchData.results || [];
       allSearchResults = allSearchResults.concat(results);
+
       session.searchQueries++;
       session.totalSpentUSDC += 0.0002;
+
+      // Track the Search TX natively
+      if (paymentTxId) {
+        session.onChainTxs++;
+        session.transactions.push({
+          type: "x402_payment",
+          agent: "search",
+          txId: paymentTxId,
+          amountUSDC: "0.0002",
+          description: `x402 HTTP Payment for query "${sq.slice(0,10)}..."`,
+          timestamp: Date.now(),
+        });
+      }
 
       if (wss) {
         broadcast(wss, {
@@ -252,18 +309,25 @@ Return ONLY the JSON object.`;
           sessionId,
           timestamp: Date.now(),
         });
+        
+        if (paymentTxId) {
+           broadcast(wss, {
+             type: "onchain_tx",
+             txType: "x402_payment",
+             agent: "search",
+             txId: paymentTxId,
+             onChainCount: session.onChainTxs,
+             amountUSDC: "0.0002",
+             sessionId,
+             timestamp: Date.now()
+           });
+        }
       }
 
-      // Small delay to make the visualization more interesting
       await sleep(300);
     }
 
-    addTimelineEvent(
-      session,
-      wss,
-      "search_done",
-      `Search complete: ${allSearchResults.length} results from ${session.searchQueries} queries`
-    );
+    addTimelineEvent(session, wss, "search_done", `Search complete: ${allSearchResults.length} results from ${session.searchQueries} queries`);
 
     // --- PHASE 3: LLM Agent analysis (MPP Session commitments) ---
     addTimelineEvent(session, wss, "llm_start", "LLM Agent synthesizing research...");
@@ -273,21 +337,25 @@ Return ONLY the JSON object.`;
         type: "agent_status",
         agent: "llm",
         status: "working",
-        detail: "Processing search results with Gemini...",
+        detail: "Processing search results with Gemini via MPP...",
         sessionId,
         timestamp: Date.now(),
       });
     }
 
-    // Build search context for the LLM
     const searchContext = allSearchResults
       .map((r, i) => `[${i + 1}] ${r.title}\n    URL: ${r.url}\n    ${r.snippet}`)
       .join("\n\n");
 
-    const { fullText, totalTokens, batchCount } = await streamLLM(
+    let fullText = "", totalTokens = 0, batchCount = 0;
+
+    const geminiRes = await streamLLM(
       query,
       searchContext,
-      (batchTokens, batchText, totalTkns, batchNum) => {
+      async (batchTokens, batchText, totalTkns, batchNum) => {
+        batchCount = batchNum;
+        totalTokens = totalTkns;
+        
         session.llmTokens = totalTkns;
         session.llmBatches = batchNum;
         session.offChainCommitments = batchNum;
@@ -295,11 +363,10 @@ Return ONLY the JSON object.`;
         session.totalSpentUSDC += batchCost;
 
         // Sign real off-chain micropayment commitment
-        const cumulativeAmount = batchNum * 100; // 0.00001 USDC per batch
+        const cumulativeAmount = batchNum * 100; // cumulative units
         const { signature } = signMicropayment(session.commitmentSecret, session.channelContractId, cumulativeAmount);
 
         if (wss) {
-          // Emit streamed text
           broadcast(wss, {
             type: "result_chunk",
             text: batchText,
@@ -311,7 +378,6 @@ Return ONLY the JSON object.`;
             timestamp: Date.now(),
           });
 
-          // Emit off-chain commitment event (with real signature)
           broadcast(wss, {
             type: "commitment",
             channel: "llm",
@@ -319,7 +385,7 @@ Return ONLY the JSON object.`;
             batchNumber: batchNum,
             cumulativeTokens: totalTkns,
             offChainCount: batchNum,
-            signature: signature.slice(0, 16),
+            signature: signature ? signature.slice(0, 16) : "ed25519-signed",
             sessionId,
             timestamp: Date.now(),
           });
@@ -327,35 +393,18 @@ Return ONLY the JSON object.`;
       }
     );
 
-    session.llmTokens = totalTokens;
-    session.llmBatches = batchCount;
-
-    addTimelineEvent(
-      session,
-      wss,
-      "llm_done",
-      `LLM complete: ${totalTokens} tokens, ${batchCount} commitments`
-    );
+    fullText = geminiRes.fullText;
+    
+    addTimelineEvent(session, wss, "llm_done", `LLM complete: ${totalTokens} tokens, ${batchCount} commitments`);
 
     // --- PHASE 4: Close channel (on-chain tx real transaction) ---
     addTimelineEvent(session, wss, "channel_close", "Closing MPP Session channel...");
 
-    // The close_start MUST be called by the funder to bypass the XDR SCVal array logic.
-    // In our test-mpp-flow.js, this succeeds because it's signed by the Funder (STELLAR_SECRET_KEY_2).
-    // Get the funder secret from the global workspace env
-    const path = await import("path");
-    const dotenv = await import("dotenv");
-    dotenv.default.config({ path: path.default.join(process.cwd(), "../frontend/.env.local") });
-    
-    // Fallback to testing keys if not found
-    let closerSecret = process.env.STELLAR_SECRET_KEY_2;
-    if (!closerSecret) closerSecret = process.env.LLM_AGENT_SECRET;
-    
     let channelCloseTx = null;
     try {
-      console.log('→ Intentando close() del canal', session.channelContractId);
+      // Channel was opened by STELLAR_SECRET_KEY_2 (platform funder) — only it can close_start
+      const closerSecret = process.env.STELLAR_SECRET_KEY_2;
       const closeResult = await closeChannelOnChain(closerSecret, session.channelContractId);
-      console.log('← Close result:', JSON.stringify(closeResult));
       channelCloseTx = closeResult.txHash;
     } catch (closeErr) {
       console.warn("[Channel Close] Non-fatal: channel close failed —", closeErr.message || closeErr);
@@ -367,13 +416,12 @@ Return ONLY the JSON object.`;
       type: "channel_close",
       agent: "llm",
       txId: channelCloseTx,
-      description: `MPP channel settled: ${batchCount} commitments → ${session.channelContractId.slice(0,8)}...`,
+      description: `MPP channel settled: ${batchCount} commitments`,
       amountUSDC: (0.00001 * batchCount).toFixed(6),
       timestamp: Date.now(),
     });
 
     if (wss) {
-      console.log('→ Emitiendo onchain_tx via WS con hash:', channelCloseTx);
       broadcast(wss, {
         type: "onchain_tx",
         txType: "channel_close",

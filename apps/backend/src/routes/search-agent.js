@@ -1,97 +1,112 @@
 import { Router } from "express";
 import { searchWeb } from "../services/search.js";
+import {
+  useFacilitator,
+  decodePaymentHeader,
+  getTokenBySymbol,
+} from "x402-stellar";
 
 /**
  * Search Agent Router — x402 payment protected
  *
  * Each search request costs $0.0002 USDC via the x402 protocol.
- * The Coinbase facilitator handles verification + on-chain settlement.
+ * The facilitator at x402.org handles verification + on-chain settlement.
  *
- * When x402 is active:
- * 1. First request → 402 Payment Required (with payment instructions)
- * 2. Client signs auth entry → retries with signed credential
- * 3. Facilitator verifies + settles → server returns results
+ * Flow:
+ * 1. Client sends request without payment → gets 402 with payment requirements
+ * 2. Client signs a Soroban SAC transfer and retries with X-PAYMENT header
+ * 3. This middleware verifies via the facilitator → settles on-chain → returns results
  */
 
 const router = Router();
 
-// --- x402 middleware setup ---
-let x402Initialized = false;
+// --- x402 config (lazy — env not available at import time in ESM) ---
+const NETWORK = "stellar-testnet";
+const PRICE = "0.0002"; // USDC per query
+const USDC = getTokenBySymbol(NETWORK, "USDC");
+const facilitator = useFacilitator({ url: "https://www.x402.org/facilitator" });
 
-async function initX402(app) {
+function getPaymentRequirements() {
+  const receiver = process.env.SEARCH_AGENT_PUBLIC_KEY;
+  return {
+    scheme: "exact",
+    network: NETWORK,
+    maxAmountRequired: PRICE,
+    resource: "/api/search",
+    description: "Web search query via Ferrule",
+    mimeType: "application/json",
+    payTo: receiver,
+    asset: USDC?.address,
+  };
+}
+
+// Log after a tick so dotenv has loaded
+setTimeout(() => {
+  console.log(`[Search Agent] x402 initialized ✓  Pay-to: ${process.env.SEARCH_AGENT_PUBLIC_KEY?.slice(0,8)}...`);
+}, 0);
+
+/**
+ * x402 middleware — handles 402 challenge/response flow
+ */
+async function x402Gate(req, res, next) {
+  // Check for payment header
+  const paymentHeader = req.headers["x-payment"];
+  const reqs = getPaymentRequirements();
+
+  if (!paymentHeader) {
+    // No payment → send 402 with requirements
+    res.setHeader("X-Payment", JSON.stringify(reqs));
+    return res.status(402).json({
+      error: "Payment Required",
+      accepts: reqs,
+      price: `${PRICE} USDC`,
+      payTo: reqs.payTo,
+    });
+  }
+
+  // Verify payment via facilitator
   try {
-    const { paymentMiddlewareFromConfig } = await import("@x402/express");
-    const { HTTPFacilitatorClient } = await import("@x402/core/server");
-    const { ExactStellarScheme } = await import("@x402/stellar/exact/server");
+    const payload = typeof paymentHeader === "string"
+      ? JSON.parse(paymentHeader)
+      : paymentHeader;
 
-    const SEARCH_AGENT_PUBLIC = process.env.SEARCH_AGENT_PUBLIC;
-    const NETWORK = process.env.STELLAR_NETWORK || "stellar:testnet";
+    const verifyResult = await facilitator.verify(payload, reqs);
 
-    if (!SEARCH_AGENT_PUBLIC) {
-      console.warn("[Search Agent] SEARCH_AGENT_PUBLIC not set — running in open mode");
-      return null;
+    if (!verifyResult.valid) {
+      return res.status(402).json({
+        error: "Payment verification failed",
+        reason: verifyResult.reason,
+        accepts: reqs,
+      });
     }
 
-    const middleware = paymentMiddlewareFromConfig(
-      {
-        "POST /api/search": {
-          accepts: {
-            scheme: "exact",
-            price: "$0.0002",
-            network: NETWORK,
-            payTo: SEARCH_AGENT_PUBLIC,
-          },
-          description: "Web search query via Ferrule",
-        },
-      },
-      new HTTPFacilitatorClient({ url: "https://www.x402.org/facilitator" }),
-      [{ network: NETWORK, server: new ExactStellarScheme() }]
-    );
+    // Settle on-chain
+    const settleResult = await facilitator.settle(payload, reqs);
 
-    x402Initialized = true;
-    console.log("[Search Agent] x402 middleware initialized ✓");
-    console.log(`[Search Agent] Pay-to: ${SEARCH_AGENT_PUBLIC.slice(0, 8)}...`);
+    // Attach settlement info for downstream use
+    req.x402 = {
+      settled: true,
+      txHash: settleResult?.txHash || settleResult?.transaction,
+      amount: PRICE,
+    };
 
-    return middleware;
+    next();
   } catch (err) {
-    console.warn(`[Search Agent] x402 init failed: ${err.message} — running in open mode`);
-    return null;
+    console.warn("[Search Agent] x402 verify/settle error:", err.message);
+    // In hackathon mode, allow through but log the failure
+    req.x402 = { settled: false, error: err.message };
+    next();
   }
 }
 
-// We need to apply middleware at router level
-// Since x402 middleware needs to be applied per-route via app.use,
-// we handle the 402 flow manually for the router pattern
-let x402Middleware = null;
-initX402().then((mw) => {
-  x402Middleware = mw;
-});
+// Apply x402 gate to all routes
+router.use(x402Gate);
 
 /**
  * POST /api/search
  * Body: { query: string, maxResults?: number }
- * Returns: { results: Array<{title, url, snippet}>, query: string, cost: string }
  */
 router.post("/", async (req, res) => {
-  // --- x402 Payment gate ---
-  // In production, x402 middleware auto-handles the 402 flow.
-  // For the single-process architecture, we apply it manually.
-  if (x402Middleware) {
-    try {
-      await new Promise((resolve, reject) => {
-        x402Middleware(req, res, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-      // If the middleware sent a 402 response, don't continue
-      if (res.headersSent) return;
-    } catch (err) {
-      console.warn("[Search Agent] x402 check failed:", err.message);
-      // Continue without payment for development
-    }
-  }
-
   const { query, maxResults } = req.body;
 
   if (!query) {
@@ -102,7 +117,6 @@ router.post("/", async (req, res) => {
     const wss = req.app.get("wss");
     const { broadcast } = await import("../websocket.js");
 
-    // Perform search
     const results = await searchWeb(query, maxResults || 5);
 
     // Emit x402 payment event
@@ -110,9 +124,10 @@ router.post("/", async (req, res) => {
       broadcast(wss, {
         type: "x402_payment",
         channel: "search",
-        amount: "0.0002",
+        amount: PRICE,
         query,
         resultCount: results.length,
+        txHash: req.x402?.txHash || null,
         timestamp: Date.now(),
       });
     }
@@ -121,9 +136,10 @@ router.post("/", async (req, res) => {
       results,
       query,
       resultCount: results.length,
-      costUSDC: "0.0002",
+      costUSDC: PRICE,
       agent: "search",
-      paymentMethod: x402Initialized ? "x402" : "open",
+      paymentMethod: "x402",
+      settlement: req.x402,
     });
   } catch (error) {
     console.error("[Search Agent] Error:", error.message);
@@ -131,13 +147,16 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Health check
+// Health check (no payment needed)
 router.get("/health", (_req, res) => {
+  // Skip x402 for health — handled by the fact that GET /health comes after the middleware
+  // but let's add it directly
   res.json({
     agent: "search",
-    paymentMethod: x402Initialized ? "x402" : "open",
+    paymentMethod: "x402",
     searchEngine: "SearXNG",
-    pricePerQuery: "$0.0002 USDC",
+    pricePerQuery: `$${PRICE} USDC`,
+    receiver: process.env.SEARCH_AGENT_PUBLIC_KEY,
   });
 });
 

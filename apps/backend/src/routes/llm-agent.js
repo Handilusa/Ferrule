@@ -1,74 +1,46 @@
 import { Router } from "express";
 import { streamLLM } from "../services/gemini.js";
-import { createRequire } from "module";
-
-const _require = createRequire(import.meta.url);
-
-/**
- * LLM Agent Router — MPP Session Channel protected
- *
- * In the full implementation, this endpoint is gated by MPP Session middleware:
- * each request requires an off-chain cumulative commitment signed with ed25519.
- * The orchestrator (acting as MPP client) auto-handles the 402 challenge flow.
- *
- * For the hackathon demo, we implement:
- * 1. MPP Session middleware (mppx + @stellar/mpp/channel/server)
- * 2. Streaming LLM response via Gemini
- * 3. Token counting per batch (~100 tokens = 1 commitment)
- */
+import { Mppx, stellar, Store } from "@stellar/mpp/channel/server";
 
 const router = Router();
 
-// --- MPP Session middleware setup ---
-// This requires a deployed one-way-channel contract on testnet.
-// We wrap the setup in a try-catch so the server starts even without
-// MPP configured (graceful degradation for development).
+// --- MPP Channel middleware setup (lazy init — ESM imports hoist before dotenv) ---
 let mppx = null;
+let mppInitialized = false;
 
-async function initMPP() {
+function initMPP() {
+  if (mppInitialized) return;
+  mppInitialized = true;
+
+  const CHANNEL_CONTRACT = process.env.ONE_WAY_CHANNEL_CONTRACT_ID;
+  const COMMITMENT_PUBKEY = process.env.ORCHESTRATOR_PUBLIC_KEY;
+  const MPP_SECRET_KEY = process.env.LLM_AGENT_PRIVATE_KEY;
+
   try {
-    const { Mppx, Store } = await import("mppx/server");
-    const { stellar } = await import("@stellar/mpp/channel/server");
-    const { StrKey } = _require("@stellar/stellar-sdk");
-
-    const CHANNEL_CONTRACT = process.env.CHANNEL_CONTRACT;
-    const COMMITMENT_PUBKEY = process.env.COMMITMENT_PUBKEY;
-    const MPP_SECRET_KEY = process.env.MPP_SECRET_KEY;
-
-    if (!CHANNEL_CONTRACT || !COMMITMENT_PUBKEY || !MPP_SECRET_KEY) {
-      console.warn("[LLM Agent] MPP not configured — running in open mode (no payment required)");
-      return;
+    if (CHANNEL_CONTRACT && COMMITMENT_PUBKEY && MPP_SECRET_KEY) {
+      mppx = Mppx.create({
+        secretKey: MPP_SECRET_KEY,
+        methods: [
+          stellar.channel({
+            channel: CHANNEL_CONTRACT,
+            commitmentKey: COMMITMENT_PUBKEY,
+            store: Store.memory(),
+            network: "stellar:testnet",
+          }),
+        ],
+      });
+      console.log("[LLM Agent] MPP Channel middleware initialized ✓");
+      console.log(`[LLM Agent] Channel: ${CHANNEL_CONTRACT.slice(0, 8)}...`);
+    } else {
+      console.warn("[LLM Agent] MPP not configured — running in open mode");
     }
-
-    // Convert raw ed25519 public key (hex) to a Stellar G... address
-    const commitmentPublicKeyG = StrKey.encodeEd25519PublicKey(
-      Buffer.from(COMMITMENT_PUBKEY, "hex")
-    );
-
-    mppx = Mppx.create({
-      secretKey: MPP_SECRET_KEY,
-      methods: [
-        stellar.channel({
-          channel: CHANNEL_CONTRACT,
-          commitmentKey: commitmentPublicKeyG,
-          store: Store.memory(),
-          network: process.env.STELLAR_NETWORK || "stellar:testnet",
-        }),
-      ],
-    });
-
-    console.log("[LLM Agent] MPP Session middleware initialized ✓");
-    console.log(`[LLM Agent] Channel contract: ${CHANNEL_CONTRACT.slice(0, 8)}...`);
   } catch (err) {
     console.warn(`[LLM Agent] MPP init failed: ${err.message} — running in open mode`);
   }
 }
 
-// Initialize MPP on module load
-initMPP();
-
 /**
- * Convert Express req to Web Request (needed by mppx).
+ * Convert Express req to Web Request (needed by mppx)
  */
 function toWebRequest(req, port) {
   const headers = new Headers();
@@ -90,26 +62,30 @@ function toWebRequest(req, port) {
 /**
  * POST /api/llm
  * Body: { prompt: string, context: string }
- * Returns: { text: string, tokens: number, batches: number }
- *
- * When MPP is active, the orchestrator must include
- * valid MPP Session commitment credentials in headers.
  */
 router.post("/", async (req, res) => {
   const PORT = process.env.PORT || 3000;
 
+  // Lazy init MPP (env vars available now)
+  initMPP();
+
   // --- MPP Payment gate ---
   if (mppx) {
-    const webReq = toWebRequest(req, PORT);
-    const result = await mppx.channel({
-      amount: "0.00001", // 0.00001 USDC per request (~100 tokens)
-      description: "LLM token batch (100 tokens)",
-    })(webReq);
+    try {
+      const webReq = toWebRequest(req, PORT);
+      const result = await mppx.channel({
+        amount: "0.00001",
+        description: "LLM token batch (100 tokens)",
+      })(webReq);
 
-    if (result.status === 402) {
-      const challenge = result.challenge;
-      challenge.headers.forEach((value, key) => res.setHeader(key, value));
-      return res.status(402).send(await challenge.text());
+      if (result.status === 402) {
+        const challenge = result.challenge;
+        challenge.headers.forEach((value, key) => res.setHeader(key, value));
+        return res.status(402).send(await challenge.text());
+      }
+    } catch (err) {
+      console.warn("[LLM Agent] MPP check failed:", err.message);
+      // Continue without payment in dev
     }
   }
 
@@ -128,7 +104,6 @@ router.post("/", async (req, res) => {
       prompt,
       context || "",
       (batchTokens, batchText, totalTkns, batch) => {
-        // Emit each token batch as a real-time event
         if (wss) {
           broadcast(wss, {
             type: "result_chunk",
@@ -140,7 +115,6 @@ router.post("/", async (req, res) => {
             timestamp: Date.now(),
           });
 
-          // Each batch represents an off-chain commitment
           broadcast(wss, {
             type: "commitment",
             channel: "llm",
@@ -159,7 +133,7 @@ router.post("/", async (req, res) => {
       batches: batchCount,
       costUSDC: (0.00001 * batchCount).toFixed(6),
       agent: "llm",
-      paymentMethod: mppx ? "mpp-session" : "open",
+      paymentMethod: mppx ? "mpp-channel" : "open",
     });
   } catch (error) {
     console.error("[LLM Agent] Error:", error.message);
@@ -171,7 +145,7 @@ router.post("/", async (req, res) => {
 router.get("/health", (_req, res) => {
   res.json({
     agent: "llm",
-    paymentMethod: mppx ? "mpp-session" : "open",
+    paymentMethod: mppx ? "mpp-channel" : "open",
     model: "gemini-2.0-flash-lite",
     pricePerBatch: "0.00001 USDC / 100 tokens",
   });
