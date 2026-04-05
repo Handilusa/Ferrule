@@ -29,10 +29,9 @@ jobs:
         env:
           ORCHESTRATOR_SECRET: ${{ secrets.ORCHESTRATOR_PRIVATE_KEY }}
         run: |
-          stellar keys add ORCHESTRATOR --secret-key "$ORCHESTRATOR_SECRET"
           CONTRACT_ID=$(stellar contract deploy \
             --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm \
             --network testnet \
-            --source ORCHESTRATOR)
+            --source "$ORCHESTRATOR_SECRET")
           echo "CONTRACT_ID=$CONTRACT_ID"
           echo "✅ Registry deployed: $CONTRACT_ID"
