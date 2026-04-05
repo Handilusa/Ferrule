@@ -37,7 +37,7 @@ jobs:
           
           echo "Deploying optimized contract..."
           CONTRACT_ID=$(stellar contract deploy \
-            --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry_optimized.wasm \
+            --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.optimized.wasm \
             --network testnet \
             --source fresh_deployer)
             
@@ -45,7 +45,8 @@ jobs:
           echo "✅ Registry deployed: $CONTRACT_ID"
 
       - name: Upload compiled WASM artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: agent_registry_optimized.wasm
-          path: contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry_optimized.wasm
+          name: agent_registry.optimized.wasm
+          path: contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.optimized.wasm
