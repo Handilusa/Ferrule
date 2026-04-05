@@ -22,7 +22,8 @@ jobs:
           cargo install stellar-cli
 
       - name: Build contract
-        run: stellar contract build --package agent-registry
+        working-directory: contracts/agent-registry
+        run: stellar contract build
 
       - name: Deploy to testnet
         env:
