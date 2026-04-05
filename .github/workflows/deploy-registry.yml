@@ -16,9 +16,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libdbus-1-dev pkg-config libudev-dev libusb-1.0-0-dev
 
-      - name: Install Rust + Soroban target
+      - name: Install Rust + Soroban targets
         run: |
           rustup target add wasm32-unknown-unknown
+          rustup target add wasm32v1-none || true
           cargo install stellar-cli
 
       - name: Build contract
@@ -31,7 +32,7 @@ jobs:
         run: |
           stellar keys add ORCHESTRATOR --secret-key "$ORCHESTRATOR_SECRET"
           CONTRACT_ID=$(stellar contract deploy \
-            --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm \
+            --wasm contracts/agent-registry/target/wasm32v1-none/release/agent_registry.wasm \
             --network testnet \
             --source ORCHESTRATOR)
           echo "CONTRACT_ID=$CONTRACT_ID"
