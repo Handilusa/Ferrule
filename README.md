@@ -1,88 +1,95 @@
-# Meridian — Pay-Per-Token AI Research Agent on Stellar
+# Ferrule — Due Diligence Desk for SaaS B2B
 
-> 847 micropayments. 2 on-chain transactions. $0.00003 in settlement fees.
-> This is only possible on Stellar.
+> **Autonomous Tech & Risk Evaluation. Paid per report via x402/MPP. Anchored on Stellar.**
 
-## The Problem
-AI agents can't have monthly subscriptions. Pay-per-request (x402) works well for discrete calls but falls completely flat for streaming, continuous computational workloads. There has been no economic primitive for "pay per token produced" off-chain — until the introduction of Stellar MPP Session channels.
+Ferrule is a next-generation research console designed for CTOs, CISOs, and DevOps leads who need to evaluate B2B software vendors (monitoring, security, logging, payments, etc.) without spending weeks on manual due diligence. 
 
-## How It Works
+Instead of generic LLM web-searches that hallucinate facts or suffer from confirmation bias, **Ferrule orchestrates an autonomous network of specialized agents** that cross-examine documentation, uncover vendor lock-in, and assess security risks. 
+
+Every agent action is cryptographically paid for using Stellar micropayments (`x402`), and the final report is immutably anchored on-chain using `manageData` for guaranteed verifiability.
+
+---
+
+## 🏆 The "Why Not ChatGPT?" Factor
+
+Standard basic LLMs fail at high-stakes due diligence:
+1. **Hallucinations:** They make up compliance certifications or pricing tiers.
+2. **Confirmation Bias:** They tell you what you want to hear, missing hidden technical debt.
+3. **Zero Verifiability:** You can't prove *when* the report was generated or *what* data it cited.
+
+### How Ferrule Solves This:
+1. **Adversarial Risk Agent:** A dedicated, isolated AI specifically prompted to attack the primary report, find security gaps, and autonomously trigger secondary research (`x402` paid) until satisfied.
+2. **Human-in-the-Loop Steering:** Operators can pause the pipeline and inject directives mid-flight.
+3. **On-Chain Immutable Outcomes:** Every report hash is anchored to the Stellar ledger (`manageData`), proving cryptographically to stakeholders that the due diligence was performed at a specific point in time, free of tampering.
+
+## ⚙️ Architecture & Data Flow
 
 ```mermaid
 sequenceDiagram
-    participant U as 👤 Usuario
-    participant F as 🖥️ Frontend (Vercel)
-    participant O as 🤖 Orchestrator (Koyeb)
-    participant S as ⭐ Stellar Testnet
-    participant LLM as 🧠 LLM Agent (Koyeb)
-    participant SR as 🔍 Search Agent (Koyeb)
+    participant U as 👤 Operator
+    participant O as 🤖 Orchestrator
+    participant SR as 🔍 Search Agent (x402)
+    participant LLM as 🧠 LLM Agent (MPP)
+    participant RA as 🛡️ Risk Agent (x402)
+    participant S as ⭐ Stellar Ledger
 
-    U->>F: Query + 0.05 USDC budget
-    F->>O: POST /orchestrate
+    U->>O: "Evaluate Datadog vs New Relic" + Budget
     
-    O->>S: TX 1: Open MPP Channel (LLM)
-    O->>S: TX 2: Open MPP Channel (Search)
+    O->>S: TX 1: Open session channel & Setup Escrow
     
-    Note over O,LLM: 847 off-chain commitments (0 txs)
-    loop Cada 100 tokens producidos
-        O-->>LLM: MPP commitment +0.00001 USDC
-        LLM-->>O: Stream de tokens
-    end
-    
-    loop Cada query de búsqueda
+    loop Primary Research
         O->>SR: POST /search + x402 payment
-        SR-->>O: Resultados
+        SR-->>O: Live HTTP/JSON Results
+        
+        O->>LLM: Stream parsing & extraction + MPP Commitments
+        LLM-->>O: Token stream
     end
     
-    O->>S: TX 3: Close MPP Channel (liquida LLM)
-    O->>S: TX 4: Close MPP Channel (liquida Search)
+    O->>RA: Request Risk Evaluation
+    RA-->>O: "Missing GDPR compliance data." (Triggers x402 Re-Search)
     
-    O-->>F: Resultado final + 4 tx IDs
-    F-->>U: Dashboard con resultado + links Stellar Explorer
+    O->>SR: POST /search + x402 payment
+    SR-->>O: GDPR specifics
     
-    Note over S: 4 txs on-chain total<br/>$0.00004 en fees<br/>847 micropagos off-chain
+    U->>O: [Inject Directive] "Focus on Vendor Lock-in"
+    
+    O->>S: TX 2: Anchor final Report Hash (manageData)
+    O->>S: TX 3: Settle channels & Distribute USDC
+    
+    O-->>U: Final Report + On-chain Verification Hash
 ```
 
-## Why Only Stellar
+## 💎 Stellar Native Economics
+Ferrule demonstrates the absolute necessity of a high-speed, low-cost network like Stellar.
 
-| Feature | Ethereum L1 | Solana | Stellar (MPP + Soroban) |
-|---|---|---|---|
-| **Pay-Per Token** | Impossible ($15/tx) | Unfeasible ($0.001/tx) | **Native via Session Channels** |
-| **Settlement Cost** | Very High | Medium | **~$0.00001 (Microscopic)** |
-| **Agent Autonomy** | Smart Contracts | Programs | **Sponsored Accounts + Spending Policies** |
-| **Trustless Streaming**| No | No | **ed25519 Off-chain Commitments** |
+| Feature | Execution | Economic Benefit |
+|---------|-----------|------------------|
+| **Pay-per-query (x402)** | Search Agent requests paid instantly per HTTP call. | Agent-to-Agent programmatic commerce without subscriptions. |
+| **Streaming compute (MPP)** | LLM Agent paid per 100-tokens via `ed25519` commits. | Zero counterparty risk; compute equals cash stream. |
+| **On-Chain Anchoring** | `manageData` operation on Platform Wallet. | Immutable, verifiable proof-of-diligence for compliance teams. |
+| **Public Agent Registry** | `agent-registry` Soroban contract. | Ferrule's agents are public x402 services. Any Stellar agent can discover and use them via the on-chain registry. |
 
-## Live Demo
-Check out our live deployment on Vercel: [Meridian Live Demo](https://meridian.vercel.app/)
+## 🚀 Running Locally
 
-## Tech Stack
-- **`x402-stellar`**: Pay-per-request model used for our Search Sub-Agent querying the web.
-- **`@stellar/mpp`**: Session channels used for our LLM Agent (pay-per-100-tokens generated).
-- **Soroban**: The `one-way-channel` and `channel_factory` smart contract architecture for secure channel settlement.
-- **Node.js Express + Next.js**: Monolithic Koyeb backend proxying out to Next.js Vercel Edge frontend.
-- **Stellar Testnet**: All transactions verifiable natively on `stellar.expert`.
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure `.env`:
+   Copy `apps/backend/.env.example` to `apps/backend/.env` and `apps/frontend/.env.local`. Provide your Gemini API key and Testnet funded Stellar secret keys for:
+   - `STELLAR_SECRET_KEY` (Platform Wallet)
+   - `STELLAR_SECRET_KEY_2` (Platform Wallet 2 / Hashing)
+   - `RISK_AGENT_SECRET` (Risk Agent autonomous funder)
+   
+3. Start the Backend API & Websockets:
+   ```bash
+   npm run dev:backend
+   ```
+4. Start the Frontend Console:
+   ```bash
+   npm run dev:frontend
+   ```
+5. Navigate to `http://localhost:3000` and deploy your first Due Diligence mission!
 
-## Live Transactions (Testnet)
-
-These are real, verifiable transactions on the Stellar Testnet produced by the `one-way-channel` Soroban smart contract from [`stellar-experimental`](https://github.com/stellar-experimental/one-way-channel) representing a fully decentralized B2B MPP pipeline:
-
-| Step | TX Hash | Explorer |
-|------|---------|----------|
-| Channel Open  | 631a3646fb3a629d...448aba5b | [View ↗](https://stellar.expert/explorer/testnet/tx/631a3646fb3a629d44209e22cb1407c7934a94e204591881343cdb33448aba5b) |
-| Channel Close | 65f57b933cdff8cc...44acb7a  | [View ↗](https://stellar.expert/explorer/testnet/tx/65f57b933cdff8cc3d1093b618ed77e133c6bc2f0d5d2bfd9fbefae5d44acb7a) |
-
-- **Factory Contract:** `CAL4X2A4QNRUCAZLRBFKCMFGPJEYCFWWQFPPMAOPZFQ3HXDDJQ77ZUME`
-
-## Architecture
-Meridian deploys a unified monolithic architecture utilizing `npm workspaces`. A single Node.js backend operates the Orchestrator, LLM Agent, and Search Agent seamlessly on Koyeb to conserve cloud costs (Scale-to-zero) while functioning indistinguishably from microservices through strict `localhost` REST/WebSocket calls.
-We intercept LLM chunks via Gemini Flash-Lite and transmit verified `ed25519` micropayment signatures strictly over WebSockets. Once testing concludes, the on-chain transactions hit Soroban.
-
-## Running Locally
-1. `npm install` inside the root repository.
-2. Ensure you have your `apps/frontend/.env.local` populated with valid Stellar Secret Keys and a `GEMINI_API_KEY`.
-3. Start the backend: `cd apps/backend && npm run dev`
-4. Start the frontend: `cd apps/frontend && npm run dev`
-5. Navigate to `http://localhost:3001` and submit a research query!
-
-## License
-MIT
+---
+*Built for the Stellar x platform.*

@@ -123,6 +123,7 @@ async function main() {
     const orchestratorStr = process.env.ORCHESTRATOR_SECRET || process.env.STELLAR_SECRET_KEY_2;
     const llmStr = process.env.LLM_AGENT_SECRET || process.env.STELLAR_SECRET_KEY_3;
     let searchStr = process.env.SEARCH_AGENT_SECRET || process.env.STELLAR_SECRET_KEY_4;
+    let riskStr = process.env.RISK_AGENT_SECRET || process.env.STELLAR_SECRET_KEY_5;
 
     if (!searchStr) {
         const kp = Keypair.random();
@@ -132,10 +133,19 @@ async function main() {
         console.log(`Secret: ${searchStr}`);
     }
 
+    if (!riskStr) {
+        const kp = Keypair.random();
+        riskStr = kp.secret();
+        console.log(`\n🔑 Nueva clave temporal generada para Risk Agent:`);
+        console.log(`Public: ${kp.publicKey()}`);
+        console.log(`Secret: ${riskStr}`);
+    }
+
     const wallets = [
         { name: 'Orchestrator', secret: orchestratorStr! },
         { name: 'LLM Agent', secret: llmStr! },
         { name: 'Search Agent', secret: searchStr! },
+        { name: 'Risk Agent', secret: riskStr! },
     ];
 
     console.log("=========================================");

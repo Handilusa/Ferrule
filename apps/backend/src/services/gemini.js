@@ -30,31 +30,40 @@ export function estimateTokens(text) {
  * @returns {Promise<{fullText: string, totalTokens: number}>}
  */
 export async function streamLLM(prompt, context, onBatch) {
-  const systemPrompt = `You are Ferrule, an elite autonomous AI research agent specialized in market intelligence, competitive analysis, and deep-dive investigations.
+  const systemPrompt = `You are Ferrule, an elite autonomous AI research agent specialized in Due Diligence for SaaS B2B, market intelligence, and risk analysis.
 
 ROLE: You are a paid research analyst. The user has authorized a blockchain micropayment to fund this mission. Every response must deliver maximum value.
 
 CRITICAL INSTRUCTIONS:
 1. ALWAYS reply in the SAME LANGUAGE as the USER QUERY. If they write in Spanish, your ENTIRE response must be in Spanish.
-2. ALWAYS produce a structured research report, regardless of query complexity.
+2. ALWAYS produce a structured DUE DILIGENCE report, regardless of query complexity.
 3. ALWAYS cite sources using [1], [2], [3] notation referencing the SEARCH CONTEXT entries.
 4. ALWAYS end with a "## Recommended Next Investigations" section suggesting 3 follow-up research missions the user could run.
 
 REPORT STRUCTURE:
 ## Executive Summary
-A comprehensive 2-3 paragraph overview of the findings, going deep into the core issues.
+A comprehensive 2-3 paragraph overview of the vendor, the product, and its core value proposition.
 
-## Key Findings
-Highly detailed analysis organized by theme. You must write AT LEAST 2 dense paragraphs per finding. Cite sources extensively.
+## Architecture & Stack
+Analysis of how the product integrates, its technological footprint, and API capabilities.
 
-## Market Implications
-Deep analysis of what this means for stakeholders, investors, or decision-makers. Write multiple paragraphs.
+## Security & Compliance
+What is known about their security posture (SOC2, ISO 27001, public incidents, data residency).
+
+## Pricing & Lock-in Risk
+Analysis of their pricing model, transparency, cost scaling, and how hard it is to migrate away from them (vendor lock-in).
+
+## Vendor Risk Assessment
+General assessment of the company maturity (funding, team, history, reliability).
+
+## Technical Checklist
+A quick bulleted rundown of pros and cons.
 
 ## Sources
 Numbered list of sources used.
 
 ## Recommended Next Investigations
-Three specific follow-up queries the user should investigate next, formatted as actionable mission prompts.
+Three specific follow-up queries the user should investigate next.
 
 SEARCH CONTEXT:
 ${context || "No search results available."}
@@ -160,5 +169,93 @@ export async function fastChatResponse(prompt, systemPrompt) {
   } catch (err) {
     console.error("[Gemini] Error in fast chat:", err.message);
     return "Lo siento, no pude procesar tu solicitud en este momento.";
+  }
+}
+
+/**
+ * Stream Risk Agent analysis.
+ */
+export async function streamRiskAnalysis(report, sources, onBatch, directive = "") {
+  let extraDirectives = directive ? `\nUSER DIRECTIVE (CRITICAL): ${directive}\n` : "";
+  const systemPrompt = `You are Ferrule's autonomous Risk Agent. Your job is to read a preliminary Due Diligence report and evaluate the vendor's risk profile objectively.
+${extraDirectives}
+INPUT DATA:
+--- PRELIMINARY REPORT ---
+${report}
+
+--- SEARCH SOURCES ---
+${sources}
+
+TASK:
+Output a structured JSON response (no markdown fences, just pure JSON) with the following structure:
+{
+  "riskScore": number (0-100, where 100 is maximum risk/danger, 0 is perfectly safe),
+  "riskBreakdown": {
+     "security": number (0-10),
+     "lockIn": number (0-10),
+     "pricing": number (0-10),
+     "dependency": number (0-10),
+     "maturity": number (0-10)
+  },
+  "gaps": string[] (List of critical information missing from the report, e.g., "No mention of SOC2 compliance", "Pricing is completely opaque"),
+  "fullRiskReport": string (Markdown summary of the risk assessment, max 3 paragraphs, formatted nicely with bolding)
+}
+
+CRITICAL RULE FOR GAPS: If the report lacks concrete details about SOC2/ISO compliance, pricing tiers, or historical security incidents, YOU MUST flag them in the "gaps" array. If you flag gaps, the orchestrator might spawn another autonomous search to fill them.
+Return ONLY valid JSON.`;
+
+  try {
+    const llm = getModel();
+    const result = await llm.generateContentStream(systemPrompt);
+
+    let fullText = "";
+    let tokenBuffer = 0;
+    let textBuffer = "";
+    let totalTokens = 0;
+    let batchCount = 0;
+
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (!text) continue;
+
+      fullText += text;
+      textBuffer += text;
+      const chunkTokens = estimateTokens(text);
+      tokenBuffer += chunkTokens;
+      totalTokens += chunkTokens;
+
+      if (tokenBuffer >= 100) {
+        batchCount++;
+        if (onBatch) onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
+        tokenBuffer = 0;
+        textBuffer = "";
+      }
+    }
+
+    if (tokenBuffer > 0) {
+      batchCount++;
+      if (onBatch) onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
+    }
+
+    try {
+      const cleaned = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch {
+      return {
+        riskScore: 50,
+        riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
+        gaps: ["Failed to parse detailed risk analysis."],
+        fullRiskReport: "Risk analysis completed, but the output could not be fully parsed."
+      };
+    }
+
+  } catch (error) {
+    console.error("[Risk Agent] Error:", error.message);
+    return {
+      riskScore: 50,
+      riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
+      gaps: [],
+      fullRiskReport: "**Risk Analysis Failed**: Could not reach LLM provider."
+    };
   }
 }

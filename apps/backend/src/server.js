@@ -12,6 +12,10 @@ import { setupWebSocket } from "./websocket.js";
 import { orchestratorRouter } from "./routes/orchestrator.js";
 import { llmAgentRouter } from "./routes/llm-agent.js";
 import { searchAgentRouter } from "./routes/search-agent.js";
+import { riskAgentRouter } from "./routes/risk-agent.js";
+import { registryRouter } from "./routes/registry.js";
+import { broadcast } from "./websocket.js";
+import { registerAgent } from "./services/registry.js";
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
@@ -32,6 +36,7 @@ app.get("/", (_req, res) => {
       orchestrator: "/api/orchestrate",
       llm: "/api/llm",
       search: "/api/search",
+      risk: "/api/risk"
     },
     status: "operational",
   });
@@ -41,15 +46,18 @@ app.get("/", (_req, res) => {
 app.use("/api/orchestrate", orchestratorRouter);
 app.use("/api/llm", llmAgentRouter);
 app.use("/api/search", searchAgentRouter);
+app.use("/api/risk", riskAgentRouter);
+app.use("/api/registry", registryRouter);
 
 // --- WebSocket for real-time payment events ---
 const wss = setupWebSocket(server);
 
 // Make wss available to routers
 app.set("wss", wss);
+app.set("broadcast", broadcast);
 
 // --- Start ---
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`
 ╔═══════════════════════════════════════════════════╗
 ║   🔧 FERRULE — Pay-Per-Token AI on Stellar       ║
@@ -57,6 +65,41 @@ server.listen(PORT, () => {
 ║   Agents: Orchestrator + LLM (MPP) + Search (x402)║
 ╚═══════════════════════════════════════════════════╝
   `);
+
+  // Auto-register agents in Soroban background
+  if (process.env.REGISTRY_CONTRACT_ID) {
+    console.log("⚙️  Registering Agents to Soroban Ledger...");
+    try {
+      await registerAgent(
+        "ferrule.search",
+        "https://meridian-demo.vercel.app/api/search",
+        "0.0001",
+        "USDC",
+        "x402",
+        "Due diligence web search — SaaS, security, compliance"
+      );
+      await registerAgent(
+        "ferrule.llm",
+        "https://meridian-demo.vercel.app/api/llm",
+        "0.00001",
+        "USDC",
+        "mpp",
+        "Due diligence token streamer — Architecture parser"
+      );
+      await registerAgent(
+        "ferrule.risk",
+        "https://meridian-demo.vercel.app/api/risk",
+        "0.005",
+        "USDC",
+        "x402",
+        "Adversarial risk evaluator & agent coordinator"
+      );
+    } catch (e) {
+      console.error("Agent Registry failed:", e);
+    }
+  } else {
+    console.warn("⚠️ No REGISTRY_CONTRACT_ID provided. Skipping public agent registration.");
+  }
 });
 
 export { app, server };

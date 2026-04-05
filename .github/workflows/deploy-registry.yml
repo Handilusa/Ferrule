@@ -1,0 +1,29 @@
+name: Deploy Agent Registry Contract
+
+on:
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust + Soroban target
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install --locked stellar-cli --features opt
+
+      - name: Build contract
+        run: stellar contract build --package agent-registry
+
+      - name: Deploy to testnet
+        env:
+          ORCHESTRATOR_SECRET: ${{ secrets.ORCHESTRATOR_PRIVATE_KEY }}
+        run: |
+          stellar keys add ORCHESTRATOR --secret-key "$ORCHESTRATOR_SECRET"
+          stellar contract deploy \
+            --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm \
+            --network testnet \
+            --source ORCHESTRATOR \
+            --alias ferrule-registry

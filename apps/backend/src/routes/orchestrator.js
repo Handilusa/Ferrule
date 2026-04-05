@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { broadcast } from "../websocket.js";
 import { searchWeb } from "../services/search.js";
 import { streamLLM, fastChatResponse } from "../services/gemini.js";
@@ -137,6 +138,10 @@ Return ONLY the JSON object.`;
     searchQueries: 0,
     llmTokens: 0,
     llmBatches: 0,
+    riskSearches: 0,
+    riskScore: null,
+    gaps: [],
+    directives: {},
     transactions: [],
     timeline: [],
   };
@@ -219,9 +224,12 @@ Return ONLY the JSON object.`;
     addTimelineEvent(session, wss, "channel_open_done", "MPP channel opened ✓");
 
     // --- PHASE 2: Search Agent queries (x402 payments) ---
-    addTimelineEvent(session, wss, "search_start", "Search Agent analyzing query...");
+    addTimelineEvent(session, wss, "search_start", "Search Agent analyzing query for tech due diligence...");
 
-    const searchQueries = generateSearchQueries(query);
+    let searchQueries = generateDueDiligenceQueries(query);
+    if (session.directives?.search) {
+      searchQueries.push(`${query} ${session.directives.search}`);
+    }
     let allSearchResults = [];
 
 
@@ -397,6 +405,113 @@ Return ONLY the JSON object.`;
     
     addTimelineEvent(session, wss, "llm_done", `LLM complete: ${totalTokens} tokens, ${batchCount} commitments`);
 
+    // --- PHASE 3.5: Risk Agent Analysis (Agent-to-Agent Commerce) ---
+    addTimelineEvent(session, wss, "risk_start", "Risk Agent evaluating vendor profile...");
+    
+    // Await human directive (Hackathon feature)
+    if (wss) {
+      broadcast(wss, {
+        type: "agent_status",
+        agent: "risk",
+        status: "AWAITING_DIRECTIVE",
+        detail: "Pausing for human-in-the-loop directive (10s)...",
+        sessionId,
+        timestamp: Date.now(),
+      });
+    }
+
+    // Deliberate pause for 10s to allow directive injection in demo
+    await sleep(10000);
+
+    const riskDirective = session.directives?.risk || "";
+    
+    const riskUrl = `http://localhost:${process.env.PORT || 3000}/api/risk`;
+    const riskRes = await fetch(riskUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        report: fullText, 
+        sources: searchContext,
+        directive: riskDirective,
+        sessionId 
+      })
+    });
+    
+    let riskData = { riskScore: 50, riskBreakdown: {}, gaps: [], additionalSources: [], riskSearches: 0, fullRiskReport: "Risk agent unavailable." };
+    if (riskRes.ok) {
+        riskData = await riskRes.json();
+    } else {
+        console.warn("Risk agent failed:", await riskRes.text());
+    }
+
+    session.riskScore = riskData.riskScore;
+    session.gaps = riskData.gaps;
+    session.riskSearches = riskData.riskSearches || 0;
+    session.totalSpentUSDC += (session.riskSearches * 0.0002);
+
+    addTimelineEvent(session, wss, "risk_done", `Risk evaluation complete. Score: ${riskData.riskScore}/100.`);
+
+    if (wss) {
+      broadcast(wss, {
+        type: "risk_score_update",
+        score: riskData.riskScore,
+        sessionId,
+        timestamp: Date.now()
+      });
+    }
+
+    // Combine reports
+    fullText += `\n\n## Risk Assessment\n${riskData.fullRiskReport}`;
+
+    // --- PHASE 3.8: On-Chain Hash Registration ---
+    addTimelineEvent(session, wss, "hash_report", "Hashing final report & anchoring on-chain...");
+    const reportHash = crypto.createHash("sha256").update(fullText).digest("hex");
+    
+    const platformKp = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY_2);
+    let hashTxId = null;
+    try {
+        const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+        const account = await horizon.loadAccount(platformKp.publicKey());
+        
+        // Ensure name is <= 64 bytes
+        const shortSessionId = sessionId.slice(-8); 
+        const name = `FRL_${shortSessionId}`;
+        
+        const tx = new TransactionBuilder(account, { fee: "1000", networkPassphrase: Networks.TESTNET })
+            .addOperation(Operation.manageData({
+                name,
+                value: Buffer.from(reportHash, "hex").slice(0, 64)
+            })).setTimeout(30).build();
+            
+        tx.sign(platformKp);
+        const submitRes = await horizon.submitTransaction(tx);
+        hashTxId = submitRes.hash;
+        
+        session.onChainTxs++;
+        session.transactions.push({
+            type: "manage_data",
+            agent: "orchestrator",
+            txId: hashTxId,
+            description: `Anchored report hash: FRL_${shortSessionId}`,
+            timestamp: Date.now(),
+        });
+        
+        if (wss) {
+            broadcast(wss, {
+                type: "onchain_tx",
+                txType: "manage_data",
+                agent: "orchestrator",
+                txId: hashTxId,
+                onChainCount: session.onChainTxs,
+                sessionId,
+                timestamp: Date.now(),
+            });
+        }
+        addTimelineEvent(session, wss, "hash_report_done", `Report Hash anchored: ${reportHash.substring(0,10)}... ✓`);
+    } catch(err) {
+        console.error("[Hash Anchor Failed]", err);
+    }
+
     // --- PHASE 4: Close channel (on-chain tx real transaction) ---
     addTimelineEvent(session, wss, "channel_close", "Closing MPP Session channel...");
 
@@ -488,6 +603,12 @@ Return ONLY the JSON object.`;
           offChainCommitments: batchCount,
           onChainTxs: 2,
         },
+        risk: {
+          protocol: "x402",
+          autonomousSearches: session.riskSearches,
+          totalCost: (session.riskSearches * 0.0002).toFixed(6),
+          riskScore: session.riskScore
+        }
       },
       stellarExplorer: {
         note: "Transaction links will be available with deployed one-way-channel contract",
@@ -530,6 +651,28 @@ router.get("/session/:id", (req, res) => {
   res.json(session);
 });
 
+// Post a human directive to an active session
+router.post("/directive", (req, res) => {
+  const { sessionId, agentName, directive } = req.body;
+  const session = sessions.get(sessionId);
+  if (!session) return res.status(404).json({ error: "Session not found" });
+  
+  session.directives[agentName] = directive;
+  
+  const wss = req.app.get("wss");
+  if (wss) {
+    broadcast(wss, {
+      type: "directive_applied",
+      agent: agentName,
+      directive,
+      sessionId,
+      timestamp: Date.now()
+    });
+  }
+  
+  return res.json({ success: true, agentName, directive });
+});
+
 // Health check
 router.get("/health", (_req, res) => {
   res.json({
@@ -541,17 +684,18 @@ router.get("/health", (_req, res) => {
 
 // --- Helper functions ---
 
-function generateSearchQueries(originalQuery) {
-  const words = originalQuery.trim().split(/\s+/).length;
+function generateDueDiligenceQueries(originalQuery) {
+  const clean = originalQuery.replace(/evaluate /i, '').replace(/ due diligence/i, '').trim();
+  const words = clean.split(/\s+/).length;
   
-  if (words <= 3 || originalQuery.toLowerCase().includes("hola") || originalQuery.toLowerCase().includes("hello")) {
-    return [originalQuery.trim()];
+  if (words > 6 || clean.toLowerCase().includes("hola") || clean.toLowerCase().includes("hello")) {
+    return [clean];
   }
   
   return [
-    originalQuery,
-    `${originalQuery} comparison analysis 2026`,
-    `${originalQuery} technical architecture documentation`,
+    `${clean} SOC2 ISO 27001 compliance security whitepaper`,
+    `${clean} pricing lock-in migration cost`,
+    `${clean} technical architecture documentation API`,
   ];
 }
 function addTimelineEvent(session, wss, event, description) {
