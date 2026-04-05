@@ -21,9 +21,11 @@ jobs:
           rustup target add wasm32-unknown-unknown
           cargo install stellar-cli
 
-      - name: Build contract
+      - name: Build and Optimize contract
         working-directory: contracts/agent-registry
-        run: cargo build --target wasm32-unknown-unknown --release
+        run: |
+          cargo build --target wasm32-unknown-unknown --release
+          stellar contract optimize --wasm target/wasm32-unknown-unknown/release/agent_registry.wasm
 
       - name: Fund fresh account & Deploy
         run: |
@@ -33,9 +35,9 @@ jobs:
           echo "Funding new account with Friendbot: $PUBKEY"
           curl -s "https://friendbot.stellar.org/?addr=$PUBKEY" || true
           
-          echo "Deploying contract..."
+          echo "Deploying optimized contract..."
           CONTRACT_ID=$(stellar contract deploy \
-            --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm \
+            --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry_optimized.wasm \
             --network testnet \
             --source fresh_deployer)
             
@@ -45,5 +47,5 @@ jobs:
       - name: Upload compiled WASM artifact
         uses: actions/upload-artifact@v4
         with:
-          name: agent_registry.wasm
-          path: contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm
+          name: agent_registry_optimized.wasm
+          path: contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry_optimized.wasm
