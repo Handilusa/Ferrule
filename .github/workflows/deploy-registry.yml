@@ -25,13 +25,25 @@ jobs:
         working-directory: contracts/agent-registry
         run: cargo build --target wasm32-unknown-unknown --release
 
-      - name: Deploy to testnet
-        env:
-          ORCHESTRATOR_SECRET: ${{ secrets.ORCHESTRATOR_PRIVATE_KEY }}
+      - name: Fund fresh account & Deploy
         run: |
+          echo "Generating brand new account for deployment..."
+          stellar keys generate fresh_deployer
+          PUBKEY=$(stellar keys address fresh_deployer)
+          echo "Funding new account with Friendbot: $PUBKEY"
+          curl -s "https://friendbot.stellar.org/?addr=$PUBKEY" || true
+          
+          echo "Deploying contract..."
           CONTRACT_ID=$(stellar contract deploy \
             --wasm contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm \
             --network testnet \
-            --source "$ORCHESTRATOR_SECRET")
+            --source fresh_deployer)
+            
           echo "CONTRACT_ID=$CONTRACT_ID"
           echo "✅ Registry deployed: $CONTRACT_ID"
+
+      - name: Upload compiled WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent_registry.wasm
+          path: contracts/agent-registry/target/wasm32-unknown-unknown/release/agent_registry.wasm
