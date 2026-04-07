@@ -62,7 +62,7 @@ export default function VerifyPage() {
         </div>
       </header>
 
-      <main className="w-full max-w-4xl px-4 py-12">
+      <main className="w-full max-w-6xl px-4 md:px-8 py-12">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-emerald-500">
             <span className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mb-4" />
@@ -128,8 +128,8 @@ export default function VerifyPage() {
 
             {/* Document Content */}
             <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 md:p-10 shadow-2xl">
-              <div className="text-zinc-300 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-sans">
-                {data.report}
+              <div className="text-zinc-300 text-sm md:text-base leading-relaxed font-sans">
+                {renderMarkdown(data.report, false)}
               </div>
             </div>
             
@@ -141,4 +141,120 @@ export default function VerifyPage() {
       </main>
     </div>
   );
+}
+
+function boldify(text: string): string {
+  let result = text;
+  result = result.replace(/\*\*(.*?)\*\*/g, '<strong class="text-zinc-200 font-medium">$1</strong>');
+  result = result.replace(/`([^`]+)`/g, '<code class="text-teal-400/80 bg-teal-400/5 px-1 py-0.5 rounded text-xs font-mono">$1</code>');
+  return result;
+}
+
+function renderMarkdown(raw: string, isMaximized: boolean): React.ReactNode[] {
+  const cleaned = raw.replace(/\s*\[[\d,\s-]+\]/g, "");
+  const lines = cleaned.split("\n");
+  const nodes: React.ReactNode[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    let content: React.ReactNode = null;
+
+    if (trimmed.startsWith("### ")) {
+      content = (
+        <h3 className="text-sm font-semibold text-teal-400/90 mt-6 mb-2 flex items-center gap-2">
+          <span className="w-1 h-4 bg-teal-400/40 rounded-full shrink-0" />
+          {trimmed.slice(4)}
+        </h3>
+      );
+    } else if (trimmed.startsWith("## ")) {
+      const headingText = trimmed.slice(3);
+      const isRisk = headingText.trim() === "Risk Assessment";
+      
+      content = (
+        <h2 className={`text-xs font-semibold mt-7 mb-3 tracking-[0.15em] uppercase border-b pb-2 flex items-center gap-2 ${isRisk ? "text-orange-400 border-orange-900/40" : "text-zinc-300 border-zinc-800/60"}`}>
+          {isRisk && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)] animate-pulse" />}
+          {headingText}
+        </h2>
+      );
+    } else if (trimmed.startsWith("# ")) {
+      content = <h1 className="text-base font-semibold text-zinc-100 mt-5 mb-3">{trimmed.slice(2)}</h1>;
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      content = (
+        <div className="flex gap-2.5 text-zinc-400 text-sm leading-relaxed ml-3 my-0.5">
+          <span className="text-zinc-600 shrink-0 mt-1.5">•</span>
+          <span dangerouslySetInnerHTML={{ __html: boldify(trimmed.slice(2)) }} />
+        </div>
+      );
+    } else if (/^\d+\.\s/.test(trimmed)) {
+      const match = trimmed.match(/^(\d+)\.\s(.*)$/);
+      if (match) {
+        content = (
+          <div className="flex gap-2.5 text-zinc-400 text-sm leading-relaxed ml-3 my-0.5">
+            <span className="text-teal-400/50 shrink-0 font-mono text-xs mt-0.5 w-4 text-right">{match[1]}.</span>
+            <span dangerouslySetInnerHTML={{ __html: boldify(match[2]) }} />
+          </div>
+        );
+      }
+    } else if (trimmed === "---") {
+      content = <div className="my-4 border-t border-zinc-800/40" />;
+    } else if (trimmed.startsWith("**[HITL:")) {
+      const isCancel = trimmed.includes("[HITL:CANCEL]");
+      const isRedirect = trimmed.includes("[HITL:REDIRECT]");
+      
+      const borderColor = isCancel ? "border-red-900/50 bg-red-950/20" : isRedirect ? "border-amber-900/50 bg-amber-950/20" : "border-emerald-900/50 bg-emerald-950/20";
+      const textColor = isCancel ? "text-red-400" : isRedirect ? "text-amber-400" : "text-emerald-400";
+      const dotColor = isCancel ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.7)]" : isRedirect ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.7)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]";
+      const iconStroke = isCancel ? "#f87171" : isRedirect ? "#fbbf24" : "#34d399";
+      
+      const bannerTitle = trimmed.replace(/\*\*/g, "").replace(/\[HITL:(CANCEL|APPROVE|REDIRECT)\]\s*/, "");
+      
+      const nextLine = i + 1 < lines.length ? lines[i + 1]?.trim() : "";
+      if (nextLine && !nextLine.startsWith("---") && nextLine !== "") {
+        i++;
+      }
+
+      const svgIcon = isCancel ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-80"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+      ) : isRedirect ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-80"><path d="M18 8L22 12L18 16"/><path d="M2 12H22"/><path d="M6 16L2 12L6 8"/></svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-80"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      );
+      
+      content = (
+        <div className={`my-4 p-4 rounded-xl border ${borderColor} flex flex-col gap-2`}>
+          <div className={`flex items-center gap-2.5 text-xs font-mono tracking-widest uppercase ${textColor}`}>
+            <span className={`w-2 h-2 rounded-full ${dotColor} animate-pulse`} />
+            {svgIcon}
+            {bannerTitle}
+          </div>
+          {nextLine && !nextLine.startsWith("---") && nextLine !== "" && (
+            <p className="text-xs text-zinc-400 leading-relaxed pl-[26px]" dangerouslySetInnerHTML={{ __html: boldify(nextLine) }} />
+          )}
+        </div>
+      );
+    } else if (trimmed === "") {
+      content = <div className="h-3" />;
+    } else {
+      content = (
+        <p className="text-sm text-zinc-400 leading-[1.75] mb-1" dangerouslySetInnerHTML={{ __html: boldify(trimmed) }} />
+      );
+    }
+
+    if (isMaximized) {
+      nodes.push(
+        <div key={i} className="flex gap-4 group w-full hover:bg-zinc-900/30 -mx-4 px-4 rounded-sm transition-colors">
+          <div className="w-8 shrink-0 text-right text-[10px] text-zinc-700 font-mono select-none pt-[3px] group-hover:text-zinc-500">
+            {i + 1}
+          </div>
+          <div className="flex-1 min-w-0">{content}</div>
+        </div>
+      );
+    } else {
+      nodes.push(<div key={i}>{content}</div>);
+    }
+  }
+
+  return nodes;
 }

@@ -32,6 +32,11 @@ export function HistoryPanel({ isOpen, onClose, address, backendUrl }: HistoryPa
   const [history, setHistory] = useState<HistorySession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredHistory = history.filter(session => 
+    session.query.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   useEffect(() => {
     if (isOpen && address) {
@@ -90,6 +95,16 @@ export function HistoryPanel({ isOpen, onClose, address, backendUrl }: HistoryPa
           </button>
         </div>
 
+        <div className="px-6 pt-4 pb-2 border-b border-white/[0.05]">
+          <input
+            type="text"
+            placeholder="Search missions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg font-mono placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/50 transition-colors"
+          />
+        </div>
+
         <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-4">
           {!address ? (
             <div className="text-center text-zinc-500 font-mono py-10">Wallet not connected</div>
@@ -101,8 +116,12 @@ export function HistoryPanel({ isOpen, onClose, address, backendUrl }: HistoryPa
             <div className="text-center text-zinc-500 font-mono py-10">
               No anchored missions found for this wallet in the current session memory.
             </div>
+          ) : filteredHistory.length === 0 ? (
+            <div className="text-center text-zinc-500 font-mono py-10">
+              No missions match your search "{searchTerm}".
+            </div>
           ) : (
-            history.map((session) => {
+            filteredHistory.map((session) => {
               const refund = Math.max(0, session.budget - session.totalSpentUSDC - session.networkCost);
               const isExpanded = expandedId === session.sessionId;
               
@@ -156,16 +175,15 @@ export function HistoryPanel({ isOpen, onClose, address, backendUrl }: HistoryPa
 
                     <div className="grid grid-cols-2 gap-2">
                       {session.reportHash && (
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/verify/${session.reportHash}`);
-                            // Optional: could add a toast notification here
-                          }}
-                          className="w-full py-2 text-[10px] uppercase tracking-wider text-blue-400 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        <a
+                          href={`/verify/${session.reportHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-center py-2 text-[10px] uppercase tracking-wider text-blue-400 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20 rounded-lg transition-colors cursor-pointer gap-2"
                         >
-                          Copy Share Link
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                        </button>
+                          Open Report
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
                       )}
 
                       {session.anchorHash && (
