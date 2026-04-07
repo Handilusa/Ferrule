@@ -418,9 +418,22 @@ Return ONLY the JSON object.`;
       });
     }
 
-    const searchContext = allSearchResults
+    let searchContext = allSearchResults
       .map((r, i) => `[${i + 1}] ${r.title}\n    URL: ${r.url}\n    ${r.snippet}`)
       .join("\n\n");
+      
+    if (searchContext.trim() === "") {
+        searchContext = "No search results available. Live search unavailable or blocked by domain mandates.";
+    }
+
+    const systemDirectives = `
+---
+CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
+1. You MUST include a final section called "## Sources Used". List the EXACT URLs provided in the Search Context above. If no URLs were provided, explicitly state: "No validated sources were available within the AP2 mandated domains."
+2. You MUST include another final section called "## AP2 Mandates Enforced". Under it, write EXACTLY: "${session.mandateBlocks} x402 payment searches were autonomously blocked because the vendor's source domains did not match the strict AP2 Policy whitelist, protecting the Funder's blockchain budget."
+---`;
+    
+    searchContext += "\n" + systemDirectives;
 
     let fullText = "", totalTokens = 0, batchCount = 0;
 

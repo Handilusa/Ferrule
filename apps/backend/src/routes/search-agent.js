@@ -107,7 +107,7 @@ router.use(x402Gate);
  * Body: { query: string, maxResults?: number }
  */
 router.post("/", async (req, res) => {
-  const { query, maxResults } = req.body;
+  const { query, maxResults, allowedDomains } = req.body;
 
   if (!query) {
     return res.status(400).json({ error: "query is required" });
@@ -117,7 +117,7 @@ router.post("/", async (req, res) => {
     const wss = req.app.get("wss");
     const { broadcast } = await import("../websocket.js");
 
-    const results = await searchWeb(query, maxResults || 5);
+    const results = await searchWeb(query, maxResults || 5, allowedDomains);
 
     // Emit x402 payment event
     if (wss) {

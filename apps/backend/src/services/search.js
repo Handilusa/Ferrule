@@ -1,72 +1,49 @@
-const SEARX_URLS = [
-  "https://search.ononoki.org",
-  "https://searx.be",
-  "https://searx.tiekoetter.com",
-  "https://search.mdosch.de",
-  "https://search.bus-hit.me"
-];
+import { TavilyClient } from "@tavily/core";
 
 /**
- * Search the web using a public SearXNG instance.
+ * Search the web using Tavily API.
  * @param {string} query - Search query
  * @param {number} maxResults - Maximum results to return (default 5)
+ * @param {string[]} allowedDomains - Optional list of domains to filter by (from AP2 Mandates)
  * @returns {Promise<Array<{title: string, url: string, snippet: string}>>}
  */
-export async function searchWeb(query, maxResults = 5) {
-  const SEARX_URL = SEARX_URLS[Math.floor(Math.random() * SEARX_URLS.length)];
+export async function searchWeb(query, maxResults = 5, allowedDomains = []) {
   try {
-    const params = new URLSearchParams({
-      q: query,
-      format: "json",
-      engines: "google,duckduckgo,bing",
-      language: "en",
-    });
-
-    const response = await fetch(`${SEARX_URL}/search?${params}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(15000), // 15s timeout
-    });
-
-    if (!response.ok) {
-      console.warn(`[Search] SearXNG (${SEARX_URL}) returned ${response.status}, using Wikipedia fallback`);
-      return fetchWikipediaFallback(query);
+    const apiKey = process.env.TAVILY_API_KEY;
+    if (!apiKey) {
+      console.warn("[Search] TAVILY_API_KEY Missing, falling back to dummy");
+      return fallbackDummy(query);
+    }
+    
+    const client = new TavilyClient({ apiKey });
+    
+    const searchOptions = {
+      searchDepth: "basic",
+      maxResults: maxResults
+    };
+    
+    if (allowedDomains && allowedDomains.length > 0) {
+      searchOptions.includeDomains = allowedDomains.map(d => d.replace(/^\*\./, ""));
     }
 
-    const data = await response.json();
+    const data = await client.search(query, searchOptions);
 
     if (!data.results || data.results.length === 0) {
-      return fetchWikipediaFallback(query);
+      return fallbackDummy(query);
     }
 
-    return data.results.slice(0, maxResults).map((r) => ({
+    return data.results.map((r) => ({
       title: r.title || "Untitled",
       url: r.url || "",
-      snippet: r.content || r.description || "",
+      snippet: r.content || "",
     }));
   } catch (error) {
-    console.error(`[Search] Error: ${error.message}`);
-    return fetchWikipediaFallback(query);
+    console.error(`[Search] Error using Tavily: ${error.message}`);
+    return fallbackDummy(query);
   }
 }
 
-async function fetchWikipediaFallback(query) {
-  try {
-    // Attempt to grab wikipedia summary if SearX fails
-    const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`;
-    const res = await fetch(wikiUrl);
-    const data = await res.json();
-    if (data.query && data.query.search && data.query.search.length > 0) {
-      return data.query.search.slice(0, 3).map(s => ({
-        title: s.title,
-        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(s.title)}`,
-        snippet: s.snippet.replace(/<[^>]*>/g, '')
-      }));
-    }
-  } catch(e) {}
-  
+function fallbackDummy(query) {
   return [{
     title: `Web search for: ${query}`,
     url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
