@@ -9,7 +9,8 @@ export async function registerAgent(name, url, price, asset, protocol, descripti
     return;
   }
 
-  const orchestratorKp = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY);
+  const secret = process.env.ORCHESTRATOR_PRIVATE_KEY || process.env.STELLAR_SECRET_KEY_1;
+  const orchestratorKp = Keypair.fromSecret(secret);
   const contract = new Contract(contractId);
 
   // function register(env, name: Symbol, url: String, price: i128, asset: Symbol, protocol: Symbol, description: String, owner: String)

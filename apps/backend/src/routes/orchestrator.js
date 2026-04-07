@@ -131,6 +131,7 @@ Return ONLY the JSON object.`;
     id: sessionId,
     query,
     budget: missionBudget,
+    funderPublicKey: req.body.funderPublicKey,
     status: "active",
     offChainCommitments: 0,
     onChainTxs: 0,
@@ -144,6 +145,7 @@ Return ONLY the JSON object.`;
     directives: {},
     transactions: [],
     timeline: [],
+    timestamp: startTime,
   };
   sessions.set(sessionId, session);
 
@@ -414,16 +416,45 @@ Return ONLY the JSON object.`;
         type: "agent_status",
         agent: "risk",
         status: "AWAITING_DIRECTIVE",
-        detail: "Pausing for human-in-the-loop directive (10s)...",
+        detail: "⏸ Waiting for human authorization before Risk Agent proceeds...",
+        query: query,
+        context: `Report has ${allSearchResults.length} sources. Risk Agent will evaluate vendor profile and trigger autonomous x402 gap searches if needed.`,
         sessionId,
         timestamp: Date.now(),
       });
     }
 
-    // Deliberate pause for 10s to allow directive injection in demo
-    await sleep(10000);
+    // Real HITL: Wait for directive OR auto-approve after 30s
+    await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        if (!session.directives?.risk) {
+          session.directives.risk = "[AUTO-APPROVED] No human input within 30s.";
+        }
+        resolve();
+      }, 30000);
+      
+      // Poll for directive arrival every 500ms
+      const poll = setInterval(() => {
+        if (session.directives?.risk) {
+          clearTimeout(timeout);
+          clearInterval(poll);
+          resolve();
+        }
+      }, 500);
+    });
 
     const riskDirective = session.directives?.risk || "";
+    
+    if (wss) {
+      broadcast(wss, {
+        type: "agent_status",
+        agent: "risk",
+        status: "working",
+        detail: `Human directive received. Risk Agent proceeding...`,
+        sessionId,
+        timestamp: Date.now(),
+      });
+    }
     
     const riskUrl = `http://localhost:${process.env.PORT || 3000}/api/risk`;
     const riskRes = await fetch(riskUrl, {
@@ -441,7 +472,9 @@ Return ONLY the JSON object.`;
     if (riskRes.ok) {
         riskData = await riskRes.json();
     } else {
-        console.warn("Risk agent failed:", await riskRes.text());
+        const errorText = await riskRes.text();
+        console.warn("Risk agent failed:", errorText);
+        riskData.fullRiskReport = `Risk agent unavailable. Backend Error: ${errorText}`;
     }
 
     session.riskScore = riskData.riskScore;
@@ -466,6 +499,7 @@ Return ONLY the JSON object.`;
     // --- PHASE 3.8: On-Chain Hash Registration ---
     addTimelineEvent(session, wss, "hash_report", "Hashing final report & anchoring on-chain...");
     const reportHash = crypto.createHash("sha256").update(fullText).digest("hex");
+    session.reportHash = reportHash;
     
     const platformKp = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY_2);
     let hashTxId = null;
@@ -554,6 +588,7 @@ Return ONLY the JSON object.`;
 
     // --- DONE ---
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    session.report = fullText;
     session.status = "complete";
 
     if (wss) {
@@ -668,6 +703,26 @@ router.post("/directive", (req, res) => {
       sessionId,
       timestamp: Date.now()
     });
+
+    // Inject a visible HITL banner into the research output stream
+    let hitlBanner = "";
+    if (directive.includes("[CANCELLED]")) {
+      hitlBanner = "\n\n---\n\n**[HITL:CANCEL] Human-in-the-Loop: Mission Cancelled**\nThe user has decided to cancel the risk analysis through the Human-in-the-Loop verification system. The report will be finalized as-is without further autonomous agent spending.\n\n---\n\n";
+    } else if (directive.includes("[APPROVED]")) {
+      hitlBanner = "\n\n---\n\n**[HITL:APPROVE] Human-in-the-Loop: Authorized**\nThe user has approved the autonomous Risk Agent to proceed with vendor evaluation and gap-filling x402 searches.\n\n---\n\n";
+    } else {
+      // Custom directive — the user redirected the analysis
+      const cleanDirective = directive.replace(/^\[.*?\]\s*/, "");
+      hitlBanner = `\n\n---\n\n**[HITL:REDIRECT] Human-in-the-Loop: Analysis Redirected**\nThe user has intervened via the HITL system and redirected the Risk Agent analysis to: **"${cleanDirective}"**\n\n---\n\n`;
+    }
+
+    broadcast(wss, {
+      type: "result_chunk",
+      text: hitlBanner,
+      agent: "hitl",
+      sessionId,
+      timestamp: Date.now(),
+    });
   }
   
   return res.json({ success: true, agentName, directive });
@@ -718,5 +773,76 @@ function addTimelineEvent(session, wss, event, description) {
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// --- HISTORY ENDPOINT (Hackathon in-memory feature) ---
+router.get("/history", (req, res) => {
+  const { wallet } = req.query;
+  if (!wallet) {
+    return res.status(400).json({ error: "Missing wallet parameter" });
+  }
+
+  const userHistory = [];
+  for (const session of sessions.values()) {
+    if (session.funderPublicKey === wallet && session.status === "complete") {
+      // Find the manage_data transaction hash to prove on-chain anchoring
+      const anchorTx = session.transactions.find(tx => tx.type === "manage_data");
+      
+      userHistory.push({
+        sessionId: session.id,
+        query: session.query,
+        report: session.report,
+        reportHash: session.reportHash,
+        budget: session.budget,
+        totalSpentUSDC: session.totalSpentUSDC,
+        offChainCommitments: session.offChainCommitments,
+        onChainTxs: session.onChainTxs,
+        x402Payments: session.searchQueries,
+        networkCost: session.onChainTxs * 0.0001, // Mock network fee representation
+        timestamp: session.timestamp,
+        anchorHash: anchorTx ? anchorTx.txId : null,
+      });
+    }
+  }
+
+  // Sort newest first
+  userHistory.sort((a, b) => b.timestamp - a.timestamp);
+
+  res.json({ history: userHistory });
+});
+
+// --- HASH VERIFICATION ENDPOINT (Hackathon Feature) ---
+router.get("/verify/:hash", (req, res) => {
+  const { hash } = req.params;
+  
+  if (!hash) {
+    return res.status(400).json({ error: "Missing hash parameter" });
+  }
+
+  // Search memory for the session with the matching hash
+  let foundSession = null;
+  for (const session of sessions.values()) {
+    if (session.reportHash === hash && session.status === "complete") {
+      foundSession = session;
+      break;
+    }
+  }
+
+  if (!foundSession) {
+    return res.status(404).json({ error: "Immutable report not found in current memory." });
+  }
+
+  const anchorTx = foundSession.transactions.find(tx => tx.type === "manage_data");
+
+  res.json({
+    verified: true,
+    sessionId: foundSession.id,
+    query: foundSession.query,
+    report: foundSession.report,
+    funderPublicKey: foundSession.funderPublicKey,
+    timestamp: foundSession.timestamp,
+    anchorHash: anchorTx ? anchorTx.txId : null,
+    costUSDC: (foundSession.totalSpentUSDC + (foundSession.onChainTxs * 0.0001)).toFixed(6)
+  });
+});
 
 export { router as orchestratorRouter };

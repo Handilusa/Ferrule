@@ -16,12 +16,24 @@ const wallets = [
   { name: "ORCHESTRATOR", secret: process.env.ORCHESTRATOR_PRIVATE_KEY },
   { name: "SEARCH_AGENT",  secret: process.env.SEARCH_AGENT_PRIVATE_KEY  },
   { name: "LLM_AGENT",     secret: process.env.LLM_AGENT_PRIVATE_KEY     },
+  { name: "RISK_AGENT",    secret: process.env.RISK_AGENT_PRIVATE_KEY    },
 ];
 
 async function fundWallet({ name, secret }) {
   const kp  = Keypair.fromSecret(secret);
   const pk  = kp.publicKey();
-  const acc = await server.loadAccount(pk);
+  let acc;
+  try {
+    acc = await server.loadAccount(pk);
+  } catch (e) {
+    if (e?.response?.status === 404) {
+      console.log(`   ⚠ Wallet ${name} no existe. Fondeando con Friendbot inicial...`);
+      await fetch(`https://friendbot.stellar.org?addr=${pk}`);
+      acc = await server.loadAccount(pk);
+    } else {
+      throw e;
+    }
+  }
 
   const hasTrustline = acc.balances.some(b => b.asset_code === "USDC");
   const xlmBalance   = acc.balances.find(b => b.asset_type === "native")?.balance ?? "0";

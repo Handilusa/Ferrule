@@ -6,8 +6,8 @@ const router = Router();
 
 router.post("/", async (req, res) => {
   const { report, sources, directive = "", sessionId } = req.body;
-  if (!report || !sources) {
-    return res.status(400).json({ error: "Missing report or sources" });
+  if (report == null || sources == null) {
+    return res.status(400).json({ error: `Missing report or sources. Received report length: ${report?.length}, sources length: ${sources?.length}` });
   }
 
   const wss = req.app.get("wss");

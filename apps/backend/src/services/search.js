@@ -1,4 +1,10 @@
-const SEARX_URL = process.env.SEARX_URL || "https://search.ononoki.org";
+const SEARX_URLS = [
+  "https://search.ononoki.org",
+  "https://searx.be",
+  "https://searx.tiekoetter.com",
+  "https://search.mdosch.de",
+  "https://search.bus-hit.me"
+];
 
 /**
  * Search the web using a public SearXNG instance.
@@ -7,6 +13,7 @@ const SEARX_URL = process.env.SEARX_URL || "https://search.ononoki.org";
  * @returns {Promise<Array<{title: string, url: string, snippet: string}>>}
  */
 export async function searchWeb(query, maxResults = 5) {
+  const SEARX_URL = SEARX_URLS[Math.floor(Math.random() * SEARX_URLS.length)];
   try {
     const params = new URLSearchParams({
       q: query,
@@ -24,7 +31,7 @@ export async function searchWeb(query, maxResults = 5) {
     });
 
     if (!response.ok) {
-      console.warn(`[Search] SearXNG returned ${response.status}, using Wikipedia fallback`);
+      console.warn(`[Search] SearXNG (${SEARX_URL}) returned ${response.status}, using Wikipedia fallback`);
       return fetchWikipediaFallback(query);
     }
 

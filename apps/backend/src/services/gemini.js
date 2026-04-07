@@ -202,6 +202,7 @@ Output a structured JSON response (no markdown fences, just pure JSON) with the 
 }
 
 CRITICAL RULE FOR GAPS: If the report lacks concrete details about SOC2/ISO compliance, pricing tiers, or historical security incidents, YOU MUST flag them in the "gaps" array. If you flag gaps, the orchestrator might spawn another autonomous search to fill them.
+CRITICAL RULE FOR LANGUAGE: The "fullRiskReport" string MUST be written in the exact same language as the PRELIMINARY REPORT (if the report is in Spanish, write the risk assessment in Spanish).
 Return ONLY valid JSON.`;
 
   try {
