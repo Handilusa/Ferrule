@@ -80,44 +80,50 @@ faucetRouter.post("/", async (req, res) => {
       }
     }
 
-    // Small delay for UX
-    await sleep(800);
+    // Small delay for UX and ledger propagation
+    await sleep(1500);
 
     // ═══════════════════════════════════════════════
     // STEP 2: Add USDC Trustline
     // ═══════════════════════════════════════════════
-    send("trustline", "running", "Checking USDC trustline…");
+    send("trustline", "running", "Checking USDC trustline status…");
 
-    // Check if trustline already exists
     let hasTrustline = false;
+    let accountExists = false;
+    let account = null;
+
     try {
-      const account = await horizon.loadAccount(publicKey);
+      account = await horizon.loadAccount(publicKey);
+      accountExists = true;
       hasTrustline = account.balances.some(
         (b) => b.asset_type !== "native" && b.asset_code === "USDC" && b.asset_issuer === USDC_ISSUER
       );
     } catch (e) {
-      send("trustline", "error", `Failed to load account: ${e.message}`);
-      send("done", "error", "Faucet aborted at Step 2");
-      return res.end();
+      if (e.response && e.response.status === 404) {
+        // Account not found yet — definitely no trustline
+        accountExists = false;
+        hasTrustline = false;
+        send("trustline", "running", "Account created but not yet visible on Horizon…");
+      } else {
+        send("trustline", "error", `Failed to check trustline: ${e.message}`);
+        send("done", "error", "Faucet aborted at Step 2");
+        return res.end();
+      }
     }
 
     if (hasTrustline) {
       send("trustline", "success", "USDC trustline already active (skipped)");
     } else {
-      send("trustline", "running", "Submitting USDC trustline transaction…");
-
-      // We need the user's secret key to sign. For testnet faucet,
-      // we use a server-side approach: build TX, user signs client-side.
-      // But since this is for ANY wallet, we'll use a workaround:
-      // The frontend sends the publicKey, and if the user wants full automation,
-      // they'll need to have connected via Freighter which can sign.
-      // 
-      // For the hackathon demo, we'll sign with the orchestrator and
-      // create a merge—actually, the user needs to sign trustline for THEIR account.
-      // We'll return an unsigned XDR for the frontend to sign.
+      send("trustline", "running", "Preparing USDC trustline transaction…");
       
       try {
-        const account = await horizon.loadAccount(publicKey);
+        // If account didn't exist yet, we must retry loading it or use a default one-time check
+        if (!accountExists) {
+          // Wait a bit more for Friendbot account creation to propagate
+          await sleep(2000);
+          account = await horizon.loadAccount(publicKey);
+        }
+
         const tx = new TransactionBuilder(account, {
           fee: BASE_FEE,
           networkPassphrase: Networks.TESTNET,
@@ -130,16 +136,11 @@ faucetRouter.post("/", async (req, res) => {
           .setTimeout(30)
           .build();
 
-        send("trustline", "sign_required", "Trustline transaction ready — requesting wallet signature", {
+        send("trustline", "sign_required", "Trustline ready — Signature required", {
           xdr: tx.toXDR(),
         });
-        
-        // The frontend will sign and submit, then call us back.
-        // For full server-side flow, we pause here and wait for the confirmation.
-        // But with SSE we can't receive data back, so we move on.
-        // The frontend handles signing and submitting in parallel.
       } catch (e) {
-        send("trustline", "error", `Failed to build trustline TX: ${e.message}`);
+        send("trustline", "error", `Failed to build trustline TX: ${e.message}. Pro-tip: Try again in 5s.`);
         send("done", "error", "Faucet aborted at Step 2");
         return res.end();
       }
@@ -153,33 +154,41 @@ faucetRouter.post("/", async (req, res) => {
     send("swap", "running", "Preparing XLM → USDC swap via Stellar DEX…");
 
     try {
+      // Reload account if needed to ensure we have the correct sequence number
+      if (!account) {
+        try {
+          account = await horizon.loadAccount(publicKey);
+        } catch (e) {
+          // If still 404, we have a major propagation issue
+          send("swap", "error", "Account not found on ledger yet. Please wait a few seconds and try again.");
+          send("done", "error", "Faucet aborted at Step 3");
+          return res.end();
+        }
+      }
+
       // Query available paths
       send("swap", "running", "Querying DEX for best XLM → USDC path…");
 
       // Build a strict-send path payment: send 100 XLM, receive minimum USDC
       const xlmToSwap = "100"; // Swap 100 XLM for USDC
-      
-      // Check available paths on the DEX
+
       let paths;
       try {
         paths = await horizon
           .strictSendPaths(Asset.native(), xlmToSwap, [usdc])
           .call();
-      } catch {
-        // If no strict-send paths, that's ok—we'll use a direct path payment
+      } catch (e) {
         paths = null;
       }
 
-      let destMin = "0.01"; // Minimum USDC to accept
+      let destMin = "0.01"; // Default min
       if (paths && paths.records && paths.records.length > 0) {
         destMin = paths.records[0].destination_amount;
-        send("swap", "running", `DEX route found: ${xlmToSwap} XLM → ~${parseFloat(destMin).toFixed(2)} USDC`);
+        send("swap", "running", `Best route: ${xlmToSwap} XLM → ~${parseFloat(destMin).toFixed(2)} USDC`);
       } else {
-        send("swap", "running", `Using direct path payment: ${xlmToSwap} XLM → USDC`);
+        send("swap", "running", `Using direct path: ${xlmToSwap} XLM → USDC`);
       }
 
-      // Build the path payment transaction
-      const account = await horizon.loadAccount(publicKey);
       const swapTx = new TransactionBuilder(account, {
         fee: BASE_FEE,
         networkPassphrase: Networks.TESTNET,
@@ -190,21 +199,21 @@ faucetRouter.post("/", async (req, res) => {
             sendAmount: xlmToSwap,
             destination: publicKey,
             destAsset: usdc,
-            destMin: "0.0000001", // Accept any amount (testnet)
+            destMin: "0.0000001",
             path: paths?.records?.[0]?.path?.map(p => new Asset(p.asset_code, p.asset_issuer)) || [],
           })
         )
         .setTimeout(30)
         .build();
 
-      send("swap", "sign_required", `Swap transaction ready: ${xlmToSwap} XLM → USDC — requesting signature`, {
+      send("swap", "sign_required", `Swap ready: ${xlmToSwap} XLM → USDC — Signature required`, {
         xdr: swapTx.toXDR(),
         xlmAmount: xlmToSwap,
         estimatedUsdc: destMin,
       });
 
     } catch (e) {
-      send("swap", "error", `DEX swap failed: ${e.message}`);
+      send("swap", "error", `DEX swap preparation failed: ${e.message}`);
     }
 
     await sleep(300);

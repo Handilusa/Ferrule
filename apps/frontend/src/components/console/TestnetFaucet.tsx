@@ -128,19 +128,31 @@ export function TestnetFaucet() {
   const runFaucet = useCallback(async () => {
     if (isRunning) return;
 
+    // Use current context address or fallback to localStorage
     let walletAddr = address;
     if (!walletAddr) {
-      await connect();
-      // Wait a tick for state to propagate
-      await new Promise(r => setTimeout(r, 500));
       walletAddr = localStorage.getItem("ferrule_wallet_address");
-      if (!walletAddr) return;
     }
 
+    if (!walletAddr) {
+      await connect();
+      // Wait a bit and try again
+      await new Promise(r => setTimeout(r, 800));
+      walletAddr = localStorage.getItem("ferrule_wallet_address");
+      if (!walletAddr) {
+        console.warn("Faucet: No wallet address found after connection attempt.");
+        return;
+      }
+    }
+
+    console.log("Faucet: Starting for address", walletAddr);
     setIsRunning(true);
     setIsDone(false);
     setSteps(INITIAL_STEPS);
     animateProgress(0);
+
+    // Initial buffer for steps
+    let currentSteps = [...INITIAL_STEPS];
 
     // Collect XDRs we need to sign
     const pendingXdrs: { step: string; xdr: string }[] = [];
@@ -157,26 +169,35 @@ export function TestnetFaucet() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let streamDone = false;
       let buffer = "";
 
-      while (true) {
+      while (!streamDone) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          streamDone = true;
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split("\n\n");
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
+          if (!line.includes("data: ")) continue;
           try {
-            const data = JSON.parse(line.slice(6));
+            const jsonStr = line.replace(/^data: /, "").trim();
+            if (!jsonStr) continue;
+            const data = JSON.parse(jsonStr);
             
             if (data.step === "done") {
+              if (data.status === "error") {
+                 // Map to the last running step if any
+                 setSteps(prev => prev.map(s => s.status === "running" ? { ...s, status: "error", detail: data.detail } : s));
+              }
               continue;
             }
 
-            // Map backend status
             const stepId = data.step;
             const status = data.status as StepStatus;
 
@@ -184,97 +205,85 @@ export function TestnetFaucet() {
               pendingXdrs.push({ step: stepId, xdr: data.xdr });
             }
 
-            updateStep(stepId, {
-              status: status === "sign_required" ? "sign_required" : status,
-              detail: data.detail,
-              xdr: data.xdr,
-              extra: {
-                xlmAmount: data.xlmAmount,
-                estimatedUsdc: data.estimatedUsdc,
-                xlm: data.xlm,
-              },
-            });
+            // Immediately update local state for the UI
+            setSteps(prev => prev.map(s => 
+              s.id === stepId ? { 
+                ...s, 
+                status: status === "sign_required" ? "sign_required" : status, 
+                detail: data.detail,
+                xdr: data.xdr,
+                extra: data.extra
+              } : s
+            ));
+            animateStep(stepId, status);
 
-            // Update progress
-            if (stepId === "friendbot") animateProgress(status === "success" ? 20 : 10);
-            if (stepId === "trustline") animateProgress(status === "success" ? 45 : 35);
-            if (stepId === "swap") animateProgress(status === "sign_required" ? 55 : 50);
-
-          } catch { /* skip malformed lines */ }
+            // Update individual progress markers
+            if (stepId === "friendbot" && status === "success") animateProgress(30);
+            if (stepId === "trustline" && status === "success") animateProgress(60);
+          } catch (e) { 
+            console.error("Faucet: Error parsing SSE line", e, line);
+          }
         }
       }
 
-      // Now sign and submit all pending XDRs
+      // ─── Phase 2: Sequential Signing ───
+      console.log("Faucet: Phase 1 (SSE) complete. Pending XDRs:", pendingXdrs.length);
+
       for (const { step, xdr } of pendingXdrs) {
-        if (!kit || !walletAddr) break;
+        if (!kit || !walletAddr) {
+          console.warn("Faucet: Kit or address lost during signing phase.");
+          break;
+        }
 
         try {
-          updateStep(step, { status: "signing", detail: "Requesting wallet signature…" });
-          animateProgress(step === "trustline" ? 55 : 70);
-
+          updateStep(step, { status: "signing", detail: "Awaiting wallet signature…" });
+          
           const signed = await kit.signTransaction(xdr, {
             networkPassphrase: "Test SDF Network ; September 2015",
             address: walletAddr,
           });
 
           if (!signed?.signedTxXdr) {
-            updateStep(step, { status: "error", detail: "Signature rejected" });
+            updateStep(step, { status: "error", detail: "Transaction signing rejected by user." });
             continue;
           }
 
-          updateStep(step, { status: "submitting", detail: "Submitting transaction to Stellar Testnet…" });
-          animateProgress(step === "trustline" ? 65 : 82);
-
+          updateStep(step, { status: "submitting", detail: "Submitting to Stellar network…" });
           const hash = await submitSigned(signed.signedTxXdr);
 
           if (hash) {
             updateStep(step, {
               status: "success",
-              detail: step === "trustline"
-                ? "USDC trustline activated ✓"
-                : `Swap complete — USDC received ✓`,
+              detail: step === "trustline" ? "Trustline active ✓" : "Swap complete ✓",
               txHash: hash,
             });
-            animateProgress(step === "trustline" ? 75 : 100);
+            if (step === "trustline") animateProgress(75);
+            if (step === "swap") animateProgress(100);
           } else {
-            updateStep(step, { status: "error", detail: "Transaction submission failed" });
+            updateStep(step, { status: "error", detail: "Transaction failed to land on ledger." });
           }
 
         } catch (e) {
-          const msg = (e as Error).message || "Unknown error";
-          // If user rejected, mark as error
-          updateStep(step, { status: "error", detail: `Failed: ${msg}` });
+          console.error(`Faucet: Error in signing ${step}`, e);
+          updateStep(step, { status: "error", detail: (e as Error).message });
         }
-      }
-
-      // If no pending XDRs for trustline (already existed), mark accordingly
-      const trustlineStep = pendingXdrs.find(p => p.step === "trustline");
-      if (!trustlineStep) {
-        animateProgress(75);
-      }
-      const swapStep = pendingXdrs.find(p => p.step === "swap");
-      if (!swapStep) {
-        animateProgress(100);
       }
 
     } catch (err) {
       console.error("Faucet stream error:", err);
-      updateStep("friendbot", { status: "error", detail: `Connection failed: ${(err as Error).message}` });
+      updateStep("friendbot", { status: "error", detail: `Stream failed: ${(err as Error).message}` });
     }
 
+    // Finalize
     animateProgress(100);
     setIsDone(true);
     setIsRunning(false);
 
-    // Completion celebration
     if (containerRef.current) {
-      gsap.fromTo(containerRef.current,
-        { boxShadow: "0 0 0 0 rgba(52, 211, 153, 0.3)" },
-        { boxShadow: "0 0 40px 8px rgba(52, 211, 153, 0)", duration: 1.2, ease: "power2.out" }
-      );
+      gsap.to(containerRef.current, { boxShadow: "0 0 40px 8px rgba(52, 211, 153, 0.1)", duration: 0.8 });
     }
 
-  }, [address, kit, connect, isRunning, updateStep, animateProgress, submitSigned]);
+  }, [address, kit, connect, isRunning, updateStep, animateProgress, animateStep, submitSigned]);
 
   const getStatusIcon = (status: StepStatus) => {
     switch (status) {
