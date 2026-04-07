@@ -76,7 +76,7 @@ router.post("/", async (req, res) => {
          const submitRes = await horizon.submitTransaction(tx);
          paymentTxId = submitRes.hash;
          
-         reqHeaders["Authorization"] = `L402 test_macaroon:${paymentTxId}`;
+         reqHeaders["X-Payment"] = JSON.stringify({ transaction: paymentTxId });
       }
 
       if (wss && sessionId) {
@@ -157,6 +157,16 @@ router.post("/", async (req, res) => {
     console.error("[Risk Agent] Route error:", error);
     return res.status(500).json({ error: error.message });
   }
+});
+
+// Health check
+router.get("/health", (_req, res) => {
+  res.json({
+    agent: "risk",
+    paymentMethod: "x402",
+    capabilities: ["Autonomous gap searches", "Due diligence evaluation"],
+    receiver: process.env.RISK_AGENT_PUBLIC_KEY,
+  });
 });
 
 export { router as riskAgentRouter };

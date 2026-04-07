@@ -269,7 +269,7 @@ Return ONLY the JSON object.`;
          paymentTxId = submitRes.hash;
          
          // Attach payment validation per x402 spec
-         reqHeaders["Authorization"] = `L402 test_macaroon:${paymentTxId}`;
+         reqHeaders["X-Payment"] = JSON.stringify({ transaction: paymentTxId });
       }
 
       const res = await fetch(searchUrl, {
