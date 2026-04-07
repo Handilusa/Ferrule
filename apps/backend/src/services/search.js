@@ -1,4 +1,4 @@
-import { TavilyClient } from "@tavily/core";
+import { tavily } from "@tavily/core";
 
 /**
  * Search the web using Tavily API.
@@ -15,7 +15,7 @@ export async function searchWeb(query, maxResults = 5, allowedDomains = []) {
       return fallbackDummy(query);
     }
     
-    const client = new TavilyClient({ apiKey });
+    const client = tavily({ apiKey });
     
     const searchOptions = {
       searchDepth: "basic",
