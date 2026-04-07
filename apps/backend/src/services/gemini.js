@@ -205,58 +205,68 @@ CRITICAL RULE FOR GAPS: If the report lacks concrete details about SOC2/ISO comp
 CRITICAL RULE FOR LANGUAGE: The "fullRiskReport" string MUST be written in the exact same language as the PRELIMINARY REPORT (if the report is in Spanish, write the risk assessment in Spanish).
 Return ONLY valid JSON.`;
 
-  try {
-    const llm = getModel();
-    const result = await llm.generateContentStream(systemPrompt);
+  let attempts = 0;
+  const maxRetries = 2;
+  
+  while (attempts < maxRetries) {
+    try {
+      attempts++;
+      const llm = getModel();
+      const result = await llm.generateContentStream(systemPrompt);
 
-    let fullText = "";
-    let tokenBuffer = 0;
-    let textBuffer = "";
-    let totalTokens = 0;
-    let batchCount = 0;
+      let fullText = "";
+      let tokenBuffer = 0;
+      let textBuffer = "";
+      let totalTokens = 0;
+      let batchCount = 0;
 
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (!text) continue;
+      for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (!text) continue;
 
-      fullText += text;
-      textBuffer += text;
-      const chunkTokens = estimateTokens(text);
-      tokenBuffer += chunkTokens;
-      totalTokens += chunkTokens;
+        fullText += text;
+        textBuffer += text;
+        const chunkTokens = estimateTokens(text);
+        tokenBuffer += chunkTokens;
+        totalTokens += chunkTokens;
 
-      if (tokenBuffer >= 100) {
+        if (tokenBuffer >= 100) {
+          batchCount++;
+          if (onBatch) onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
+          tokenBuffer = 0;
+          textBuffer = "";
+        }
+      }
+
+      if (tokenBuffer > 0) {
         batchCount++;
         if (onBatch) onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
-        tokenBuffer = 0;
-        textBuffer = "";
       }
-    }
 
-    if (tokenBuffer > 0) {
-      batchCount++;
-      if (onBatch) onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
-    }
+      try {
+        const cleaned = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        return JSON.parse(cleaned);
+      } catch {
+        return {
+          riskScore: 50,
+          riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
+          gaps: ["Failed to parse detailed risk analysis."],
+          fullRiskReport: "Risk analysis completed, but the output could not be fully parsed."
+        };
+      }
 
-    try {
-      const cleaned = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      return JSON.parse(cleaned);
-    } catch {
-      return {
-        riskScore: 50,
-        riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
-        gaps: ["Failed to parse detailed risk analysis."],
-        fullRiskReport: "Risk analysis completed, but the output could not be fully parsed."
-      };
+    } catch (error) {
+      console.error(`[Risk Agent] Attempt ${attempts}/${maxRetries} error:`, error.message);
+      if (attempts >= maxRetries) {
+        return {
+          riskScore: 50,
+          riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
+          gaps: [],
+          fullRiskReport: "**Risk Analysis Failed**: Could not reach LLM provider."
+        };
+      }
+      // Wait 4s before retry to let TPM recover
+      await new Promise(r => setTimeout(r, 4000));
     }
-
-  } catch (error) {
-    console.error("[Risk Agent] Error:", error.message);
-    return {
-      riskScore: 50,
-      riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
-      gaps: [],
-      fullRiskReport: "**Risk Analysis Failed**: Could not reach LLM provider."
-    };
   }
 }

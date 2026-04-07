@@ -506,6 +506,8 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
     addTimelineEvent(session, wss, "llm_done", `LLM complete: ${totalTokens} tokens, ${batchCount} commitments`);
 
     // --- PHASE 3.5: Risk Agent Analysis (Agent-to-Agent Commerce) ---
+    // TPM cooldown — let the Gemini token bucket recover after the main LLM stream
+    await sleep(3000);
     addTimelineEvent(session, wss, "risk_start", "Risk Agent evaluating vendor profile...");
     
     // Await human directive (Hackathon feature)
@@ -559,8 +561,8 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        report: fullText, 
-        sources: searchContext,
+        report: fullText.substring(0, 4000), 
+        sources: allSearchResults.map((r, i) => `[${i+1}] ${r.title} — ${r.url}`).join("\n"),
         directive: riskDirective,
         sessionId 
       })
