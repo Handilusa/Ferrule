@@ -32,6 +32,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       modules: allowAllModules(),
     });
     setKit(swk);
+
+    // Auto-reconnect if previously connected
+    const savedAddress = localStorage.getItem("ferrule_wallet_address");
+    const savedWalletId = localStorage.getItem("ferrule_wallet_id");
+    
+    if (savedAddress && savedWalletId) {
+      swk.setWallet(savedWalletId);
+      setAddress(savedAddress);
+    }
   }, []);
 
   const connect = async () => {
@@ -45,6 +54,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const kitAddr = await kit.getAddress();
             const addr = typeof kitAddr === "string" ? kitAddr : kitAddr.address;
             setAddress(addr || null);
+            if (addr) {
+              localStorage.setItem("ferrule_wallet_address", addr);
+              localStorage.setItem("ferrule_wallet_id", option.id);
+            }
           } catch (internalErr) {
             console.warn("Wallet selection was cancelled or failed.");
             // We consciously suppress thrown alerts here so Next.js doesn't throw a dev overlay
@@ -61,6 +74,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = () => {
     setAddress(null);
+    localStorage.removeItem("ferrule_wallet_address");
+    localStorage.removeItem("ferrule_wallet_id");
   };
 
   return (
