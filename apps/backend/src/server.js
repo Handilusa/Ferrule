@@ -14,6 +14,7 @@ import { llmAgentRouter } from "./routes/llm-agent.js";
 import { searchAgentRouter } from "./routes/search-agent.js";
 import { riskAgentRouter } from "./routes/risk-agent.js";
 import { registryRouter } from "./routes/registry.js";
+import { faucetRouter } from "./routes/faucet.js";
 import { broadcast } from "./websocket.js";
 import { registerAgent } from "./services/registry.js";
 
@@ -48,6 +49,7 @@ app.use("/api/llm", llmAgentRouter);
 app.use("/api/search", searchAgentRouter);
 app.use("/api/risk", riskAgentRouter);
 app.use("/api/registry", registryRouter);
+app.use("/api/faucet", faucetRouter);
 
 // --- WebSocket for real-time payment events ---
 const wss = setupWebSocket(server);

@@ -16,6 +16,7 @@ import { SessionEconomics } from "@/components/console/SessionEconomics";
 import { AgentConsole } from "@/components/console/AgentConsole";
 import { HITLModal } from "@/components/console/HITLModal";
 import { HistoryPanel } from "@/components/console/HistoryPanel";
+import { TestnetFaucet } from "@/components/console/TestnetFaucet";
 import { AmbientBackground } from "@/components/AmbientBackground";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
@@ -420,6 +421,7 @@ export default function ConsolePage() {
               Connect your Stellar wallet, set a USDC budget, and deploy an autonomous research mission.
               Every micropayment is real, every transaction is verifiable on-chain.
             </p>
+            <TestnetFaucet />
           </div>
         )}
 
