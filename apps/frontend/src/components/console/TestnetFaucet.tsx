@@ -232,10 +232,12 @@ export function TestnetFaucet() {
       for (const { step, xdr } of pendingXdrs) {
         if (!kit || !walletAddr) {
           console.warn("Faucet: Kit or address lost during signing phase.");
+          updateStep(step, { status: "error", detail: "Wallet connection lost." });
           break;
         }
 
         try {
+          console.log(`Faucet: Preparing to sign ${step}...`, { xdrLength: xdr.length });
           updateStep(step, { status: "signing", detail: "Awaiting wallet signature…" });
           
           const signed = await kit.signTransaction(xdr, {
@@ -244,28 +246,49 @@ export function TestnetFaucet() {
           });
 
           if (!signed?.signedTxXdr) {
+            console.warn(`Faucet: Signing ${step} rejected or empty result.`);
             updateStep(step, { status: "error", detail: "Transaction signing rejected by user." });
             continue;
           }
 
+          console.log(`Faucet: Signing ${step} success. Submitting...`);
           updateStep(step, { status: "submitting", detail: "Submitting to Stellar network…" });
           const hash = await submitSigned(signed.signedTxXdr);
 
           if (hash) {
-            updateStep(step, {
-              status: "success",
-              detail: step === "trustline" ? "Trustline active ✓" : "Swap complete ✓",
-              txHash: hash,
-            });
-            if (step === "trustline") animateProgress(75);
-            if (step === "swap") animateProgress(100);
+            console.log(`Faucet: Step ${step} submitted. Hash: ${hash}`);
+            
+            if (step === "swap") {
+              // Update both swap and trustline (if batched)
+              setSteps(prev => prev.map(s => {
+                if (s.id === "trustline" && s.status === "running") {
+                  return { ...s, status: "success", detail: "Enabled via batch TX ✓", txHash: hash };
+                }
+                if (s.id === "swap") {
+                  return { ...s, status: "success", detail: "Swap complete ✓", txHash: hash };
+                }
+                return s;
+              }));
+              animateStep("trustline", "success");
+              animateStep("swap", "success");
+              animateProgress(100);
+            } else {
+              updateStep(step, {
+                status: "success",
+                detail: "Transaction complete ✓",
+                txHash: hash,
+              });
+              animateProgress(75);
+            }
           } else {
+            console.error(`Faucet: Step ${step} submission failed (no hash).`);
             updateStep(step, { status: "error", detail: "Transaction failed to land on ledger." });
           }
 
         } catch (e) {
-          console.error(`Faucet: Error in signing ${step}`, e);
-          updateStep(step, { status: "error", detail: (e as Error).message });
+          const msg = (e as Error).message || "Unknown signing error";
+          console.error(`Faucet: Error in signing phase for ${step}`, e);
+          updateStep(step, { status: "error", detail: `Signing error: ${msg.slice(0, 50)}...` });
         }
       }
 

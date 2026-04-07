@@ -114,35 +114,18 @@ faucetRouter.post("/", async (req, res) => {
     if (hasTrustline) {
       send("trustline", "success", "USDC trustline already active (skipped)");
     } else {
-      send("trustline", "running", "Preparing USDC trustline transaction…");
+      send("trustline", "running", "Trustline needed — batching with swap operation…");
       
-      try {
-        // If account didn't exist yet, we must retry loading it or use a default one-time check
-        if (!accountExists) {
-          // Wait a bit more for Friendbot account creation to propagate
+      // If account didn't exist yet, we must retry loading it
+      if (!accountExists) {
+        try {
           await sleep(2000);
           account = await horizon.loadAccount(publicKey);
+        } catch (e) {
+          send("trustline", "error", `Failed to load account: ${e.message}. Pro-tip: Try again in 5s.`);
+          send("done", "error", "Faucet aborted at Step 2");
+          return res.end();
         }
-
-        const tx = new TransactionBuilder(account, {
-          fee: BASE_FEE,
-          networkPassphrase: Networks.TESTNET,
-        })
-          .addOperation(
-            Operation.changeTrust({
-              asset: usdc,
-            })
-          )
-          .setTimeout(30)
-          .build();
-
-        send("trustline", "sign_required", "Trustline ready — Signature required", {
-          xdr: tx.toXDR(),
-        });
-      } catch (e) {
-        send("trustline", "error", `Failed to build trustline TX: ${e.message}. Pro-tip: Try again in 5s.`);
-        send("done", "error", "Faucet aborted at Step 2");
-        return res.end();
       }
     }
 
@@ -154,22 +137,17 @@ faucetRouter.post("/", async (req, res) => {
     send("swap", "running", "Preparing XLM → USDC swap via Stellar DEX…");
 
     try {
-      // Reload account if needed to ensure we have the correct sequence number
+      // Reload account if missing
       if (!account) {
         try {
           account = await horizon.loadAccount(publicKey);
         } catch (e) {
-          // If still 404, we have a major propagation issue
-          send("swap", "error", "Account not found on ledger yet. Please wait a few seconds and try again.");
+          send("swap", "error", "Account not found on ledger yet.");
           send("done", "error", "Faucet aborted at Step 3");
           return res.end();
         }
       }
 
-      // Query available paths
-      send("swap", "running", "Querying DEX for best XLM → USDC path…");
-
-      // Build a strict-send path payment: send 100 XLM, receive minimum USDC
       const xlmToSwap = "100"; // Swap 100 XLM for USDC
 
       let paths;
@@ -189,25 +167,37 @@ faucetRouter.post("/", async (req, res) => {
         send("swap", "running", `Using direct path: ${xlmToSwap} XLM → USDC`);
       }
 
-      const swapTx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: Networks.TESTNET,
-      })
-        .addOperation(
-          Operation.pathPaymentStrictSend({
-            sendAsset: Asset.native(),
-            sendAmount: xlmToSwap,
-            destination: publicKey,
-            destAsset: usdc,
-            destMin: "0.0000001",
-            path: paths?.records?.[0]?.path?.map(p => new Asset(p.asset_code, p.asset_issuer)) || [],
-          })
-        )
-        .setTimeout(30)
-        .build();
+      // Collect operations
+      const operations = [];
+      
+      if (!hasTrustline) {
+        operations.push(Operation.changeTrust({ asset: usdc }));
+      }
+      
+      operations.push(
+        Operation.pathPaymentStrictSend({
+          sendAsset: Asset.native(),
+          sendAmount: xlmToSwap,
+          destination: publicKey,
+          destAsset: usdc,
+          destMin: "0.0000001",
+          path: paths?.records?.[0]?.path?.map(p => new Asset(p.asset_code, p.asset_issuer)) || [],
+        })
+      );
 
-      send("swap", "sign_required", `Swap ready: ${xlmToSwap} XLM → USDC — Signature required`, {
-        xdr: swapTx.toXDR(),
+      const combinedTx = new TransactionBuilder(account, {
+        fee: (BASE_FEE * operations.length).toString(),
+        networkPassphrase: Networks.TESTNET,
+      });
+
+      for (const op of operations) {
+        combinedTx.addOperation(op);
+      }
+
+      const builtTx = combinedTx.setTimeout(30).build();
+
+      send("swap", "sign_required", `Combined TX ready: ${hasTrustline ? 'Swap' : 'Trustline + Swap'} — Signature required`, {
+        xdr: builtTx.toXDR("base64"),
         xlmAmount: xlmToSwap,
         estimatedUsdc: destMin,
       });
