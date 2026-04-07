@@ -54,6 +54,7 @@ export function TestnetFaucet() {
   const [isRunning, setIsRunning] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
   // GSAP entrance animations
@@ -137,6 +138,11 @@ export function TestnetFaucet() {
         setIsDone(false);
         setSteps(INITIAL_STEPS);
         animateProgress(0);
+      }
+      
+      // Clear celebration glow
+      if (cardRef.current) {
+        gsap.to(cardRef.current, { clearProps: "boxShadow", duration: 0.4 });
       }
     }
   }, [address, isRunning, isDone, animateProgress]);
@@ -344,8 +350,8 @@ export function TestnetFaucet() {
     setIsDone(true);
     setIsRunning(false);
 
-    if (containerRef.current) {
-      gsap.to(containerRef.current, { boxShadow: "0 0 40px 8px rgba(52, 211, 153, 0.1)", duration: 0.8 });
+    if (cardRef.current) {
+      gsap.to(cardRef.current, { boxShadow: "0 0 40px 8px rgba(52, 211, 153, 0.1)", duration: 0.8 });
     }
 
   }, [address, kit, connect, isRunning, updateStep, animateProgress, animateStep, submitSigned]);
@@ -419,7 +425,10 @@ export function TestnetFaucet() {
       style={{ opacity: 0, visibility: "hidden" }}
     >
       {/* Card container */}
-      <div className="relative bg-zinc-950/80 backdrop-blur-md border border-zinc-800/60 rounded-2xl shadow-xl">
+      <div 
+        ref={cardRef}
+        className="relative bg-zinc-950/80 backdrop-blur-md border border-zinc-800/60 rounded-2xl shadow-xl"
+      >
 
         {/* Ambient glow container (separated to fix black corners bug) */}
         <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
