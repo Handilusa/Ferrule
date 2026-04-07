@@ -140,10 +140,12 @@ export function TestnetFaucet() {
         animateProgress(0);
       }
       
-      // Clear celebration glow
+      // Clear celebration glow and any lingering step styles
       if (cardRef.current) {
         gsap.to(cardRef.current, { clearProps: "boxShadow", duration: 0.4 });
       }
+      gsap.to(".faucet-step", { clearProps: "all", duration: 0.4 });
+      gsap.to(".step-indicator", { clearProps: "all", duration: 0.4 });
     }
   }, [address, isRunning, isDone, animateProgress]);
 
