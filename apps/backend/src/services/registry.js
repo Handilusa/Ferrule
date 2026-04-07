@@ -85,3 +85,40 @@ export async function listAgents() {
 export async function getAgent(name) {
   return null;
 }
+
+export async function recordMission(name, success) {
+  const contractId = process.env.REGISTRY_CONTRACT_ID || "CAIDRIF26CKCJYTN6ZDH5HLQEJZL53YWK352OOVY56JV67MD4JKX5E5O";
+  if (!contractId) return false;
+  
+  const secret = process.env.ORCHESTRATOR_PRIVATE_KEY || process.env.STELLAR_SECRET_KEY_1;
+  if (!secret) return false;
+  
+  const orchestratorKp = Keypair.fromSecret(secret);
+  const contract = new Contract(contractId);
+  
+  const args = [
+    xdr.ScVal.scvSymbol(name),
+    xdr.ScVal.scvBool(success)
+  ];
+  
+  try {
+    const orchestratorAccount = await rpcServer.getAccount(orchestratorKp.publicKey());
+    const invokeTx = new TransactionBuilder(orchestratorAccount, {
+      fee: (parseInt(BASE_FEE) * 100).toString(),
+      networkPassphrase: Networks.TESTNET,
+    }).addOperation(contract.call("record_mission", ...args)).setTimeout(30).build();
+    
+    const prepared = await rpcServer.prepareTransaction(invokeTx);
+    prepared.sign(orchestratorKp);
+    const sendRes = await rpcServer.sendTransaction(prepared);
+    if (sendRes.status === "ERROR") {
+      console.error(`Registry RecordMission TX Failed for ${name}`);
+      return false;
+    }
+    console.log(`RecordMission TX submittted for ${name}: success=${success}`);
+    return true;
+  } catch (e) {
+    console.error("Failed to record mission:", e);
+    return false;
+  }
+}

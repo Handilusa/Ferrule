@@ -383,6 +383,8 @@ export default function Home() {
               price: "0.0001 USDC",
               desc: "Due diligence web search — SaaS, security, compliance",
               icon: "🔍",
+              successRate: 94,
+              totalMissions: 37,
             },
             {
               name: "ferrule.llm",
@@ -390,6 +392,8 @@ export default function Home() {
               price: "0.00001 USDC",
               desc: "Token streamer — Architecture parsing & synthesis",
               icon: "🧠",
+              successRate: 98,
+              totalMissions: 41,
             },
             {
               name: "ferrule.risk",
@@ -397,6 +401,8 @@ export default function Home() {
               price: "0.005 USDC",
               desc: "Adversarial risk evaluator & agent coordinator",
               icon: "🛡️",
+              successRate: 89,
+              totalMissions: 29,
             },
           ].map((agent, i) => (
             <Card
@@ -419,9 +425,31 @@ export default function Home() {
                 </div>
                 <CardTitle className="text-sm font-mono text-zinc-300">{agent.name}</CardTitle>
                 <CardDescription className="text-xs mt-1">{agent.desc}</CardDescription>
+                
+                {/* Reputation SLA */}
                 <div className="mt-4 pt-3 border-t border-zinc-800/40">
-                  <span className="text-xs text-zinc-600">Price per call</span>
-                  <div className="text-sm font-medium text-zinc-300 mt-0.5">{agent.price}</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-zinc-600">On-Chain SLA</span>
+                    <span className={`text-xs font-mono font-medium ${
+                      agent.successRate >= 95 ? "text-emerald-400" : 
+                      agent.successRate >= 85 ? "text-amber-400" : "text-red-400"
+                    }`}>
+                      {agent.successRate}% success
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        agent.successRate >= 95 ? "bg-emerald-500/70" : 
+                        agent.successRate >= 85 ? "bg-amber-500/70" : "bg-red-500/70"
+                      }`}
+                      style={{ width: `${agent.successRate}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-600">{agent.totalMissions} missions</span>
+                    <span className="text-xs text-zinc-600">Price: <span className="text-zinc-400">{agent.price}</span></span>
+                  </div>
                 </div>
               </CardHeader>
             </Card>

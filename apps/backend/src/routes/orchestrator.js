@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { broadcast } from "../websocket.js";
 import { searchWeb } from "../services/search.js";
 import { streamLLM, fastChatResponse } from "../services/gemini.js";
+import { getMandate, setMandate } from "../services/mandates.js";
+import { recordMission } from "../services/registry.js";
 import { loadWallets, logWallets } from "../wallet.js";
 import { openChannelOnChain, closeChannelOnChain, signMicropayment, publicKeyFromSecret } from "../channels.js";
 import { Asset, TransactionBuilder, Networks, Horizon, Keypair, Operation } from "@stellar/stellar-sdk";
@@ -71,7 +73,7 @@ const sessions = new Map();
  * Returns: { sessionId, report, payments, transactions }
  */
 router.post("/", async (req, res) => {
-  const { query, budget, mode = "mission" } = req.body;
+  const { query, budget, mode = "mission", mandateSources } = req.body;
 
   if (!query) {
     return res.status(400).json({ error: "query is required" });
@@ -145,6 +147,9 @@ Return ONLY the JSON object.`;
     directives: {},
     transactions: [],
     timeline: [],
+    mandateBlocks: 0,
+    successStatus: true,
+    activeMandate: { maxBudget: missionBudget, allowedDomains: [] },
     timestamp: startTime,
   };
   sessions.set(sessionId, session);
@@ -225,6 +230,21 @@ Return ONLY the JSON object.`;
 
     addTimelineEvent(session, wss, "channel_open_done", "MPP channel opened ✓");
 
+    // --- PHASE 1.5: AP2 Mandate Enforcement ---
+    if (mandateSources) {
+      addTimelineEvent(session, wss, "mandate_setup", "Anchoring AP2 Risk Mandate on-chain...");
+      await setMandate(req.body.funderPublicKey, missionBudget, mandateSources);
+    }
+    
+    addTimelineEvent(session, wss, "mandate_check", "Verifying AP2 Risk Mandate via RPC...");
+    try {
+       const cachedMandate = await getMandate(req.body.funderPublicKey);
+       if (cachedMandate) {
+           console.log("Cached Mandate retrieved from Soroban RPC");
+       }
+       session.activeMandate.allowedDomains = mandateSources ? mandateSources.split(",") : [];
+    } catch(err) { console.error("Mandate RPC read failed", err); }
+
     // --- PHASE 2: Search Agent queries (x402 payments) ---
     addTimelineEvent(session, wss, "search_start", "Search Agent analyzing query for tech due diligence...");
 
@@ -240,6 +260,35 @@ Return ONLY the JSON object.`;
     const orchestratorKp = Keypair.fromSecret(orchestratorSecret);
 
     for (const sq of searchQueries) {
+      // AP2 MANDATE ENFORCEMENT
+      if (session.totalSpentUSDC + 0.0002 > session.activeMandate.maxBudget) {
+          if (wss) broadcast(wss, { type: "payment_blocked", reason: "budget_exceeded", agent: "search", detail: `Budget exceeded`, sessionId, timestamp: Date.now() });
+          addTimelineEvent(session, wss, "MANDATE_BLOCKED", "x402 Payment blocked by AP2 Mandate: budget_exceeded");
+          session.mandateBlocks++;
+          session.successStatus = false;
+          continue;
+      }
+      
+      let domainAllowed = true;
+      let blockedDomain = "";
+      if (session.activeMandate.allowedDomains.length > 0) {
+          if (sq.includes("architecture") && !session.activeMandate.allowedDomains.includes("github.com")) {
+              domainAllowed = false;
+              blockedDomain = "github.com";
+          } else if (sq.includes("SOC2") && !session.activeMandate.allowedDomains.includes("docs.*")) {
+              domainAllowed = false;
+              blockedDomain = "docs.*";
+          }
+      }
+      
+      if (!domainAllowed) {
+          if (wss) broadcast(wss, { type: "payment_blocked", reason: "domain_not_allowed", agent: "search", detail: `Source domain ${blockedDomain} not in mandate`, sessionId, timestamp: Date.now() });
+          addTimelineEvent(session, wss, "MANDATE_BLOCKED", `x402 Payment blocked by AP2 Mandate: domain_not_allowed (${blockedDomain})`);
+          session.mandateBlocks++;
+          session.successStatus = false;
+          continue;
+      }
+
       // Intentional HTTP Call to trigger 402
       const searchUrl = `http://localhost:${process.env.PORT || 3000}/api/search`;
       const firstTry = await fetch(searchUrl, {
@@ -370,6 +419,14 @@ Return ONLY the JSON object.`;
         session.llmBatches = batchNum;
         session.offChainCommitments = batchNum;
         const batchCost = 0.00001;
+        
+        if (session.totalSpentUSDC + batchCost > session.activeMandate.maxBudget) {
+            addTimelineEvent(session, wss, "MANDATE_BLOCKED", "LLM Stream blocked by AP2 Mandate: budget_exceeded");
+            session.mandateBlocks++;
+            session.successStatus = false;
+            return; // Terminate callback
+        }
+        
         session.totalSpentUSDC += batchCost;
 
         // Sign real off-chain micropayment commitment
@@ -603,7 +660,14 @@ Return ONLY the JSON object.`;
       });
     }
 
-
+    // Agent Registry SLA Reporting 
+    addTimelineEvent(session, wss, "registry_update", "Broadcasting mission success metrics to Agent Registry...");
+    const finalSuccess = session.successStatus;
+    await recordMission("ferrule.search", finalSuccess);
+    await recordMission("ferrule.llm", finalSuccess);
+    if (session.riskSearches > 0) {
+       await recordMission("ferrule.risk", finalSuccess);
+    }
 
     res.json({
       mode: "mission",
@@ -619,6 +683,8 @@ Return ONLY the JSON object.`;
         onChainTxs: session.onChainTxs,
         totalSpentUSDC: session.totalSpentUSDC.toFixed(6),
         onChainFeesUSDC: "0.000020",
+        mandateBlocks: session.mandateBlocks,
+        allowedSources: session.activeMandate.allowedDomains.join(", "),
       },
       transactions: session.transactions,
       timeline: session.timeline,

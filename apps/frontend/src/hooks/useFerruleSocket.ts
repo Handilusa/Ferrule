@@ -289,6 +289,12 @@ export function useFerruleSocket(backendUrl: string, active: boolean): SocketSta
               addFeedEvent("settle", "COMPLETE", `Session settled in ${data.duration}`);
               break;
 
+            case "payment_blocked":
+              addFeedEvent("error", "MANDATE BLOCKED", `${data.detail} [reason: ${data.reason}]`, {
+                amount: "0.0000",
+              });
+              break;
+
             case "error":
               addFeedEvent("error", "ERROR", data.message || "Unknown error");
               break;

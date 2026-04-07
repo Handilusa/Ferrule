@@ -1,0 +1,31 @@
+name: Build Soroban Contracts
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-risk-mandates:
+    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
+    with:
+      release_name: "contracts-${{ github.sha }}"
+      relative_path: "contracts/risk-mandates"
+      package: "risk-mandates"
+    permissions:
+      id-token: write
+      contents: write
+    secrets:
+      release_token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-agent-registry:
+    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
+    with:
+      release_name: "contracts-${{ github.sha }}"
+      relative_path: "contracts/agent-registry"
+      package: "agent-registry"
+    permissions:
+      id-token: write
+      contents: write
+    secrets:
+      release_token: ${{ secrets.GITHUB_TOKEN }}

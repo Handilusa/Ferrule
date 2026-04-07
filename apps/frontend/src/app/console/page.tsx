@@ -184,6 +184,29 @@ export default function ConsolePage() {
   const [mobileTab, setMobileTab] = useState<"session" | "feed" | "network" | "output">("session");
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
+  // AP2 Mandate Sources — abstract checkboxes map to real domain CSV
+  const MANDATE_SOURCE_MAP: Record<string, string> = {
+    "Official Docs": "docs.*",
+    "GitHub": "github.com",
+    "Tech Blogs": "medium.com,dev.to,blog.*",
+    "Security DBs": "nvd.nist.gov,cve.mitre.org",
+    "Compliance": "iso.org,soc2.org,aicpa.org",
+  };
+  const [mandateSources, setMandateSources] = useState<Record<string, boolean>>({
+    "Official Docs": true,
+    "GitHub": true,
+    "Tech Blogs": true,
+    "Security DBs": true,
+    "Compliance": true,
+  });
+
+  const getMandateDomainsCSV = () => {
+    return Object.entries(mandateSources)
+      .filter(([, v]) => v)
+      .map(([k]) => MANDATE_SOURCE_MAP[k])
+      .join(",");
+  };
+
   const { address, kit, connect, disconnect } = useWallet();
   const socket = useFerruleSocket(BACKEND_URL, isRunning);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -250,6 +273,7 @@ export default function ConsolePage() {
           mode: "mission",
           signedXdr,
           funderPublicKey,
+          mandateSources: getMandateDomainsCSV(),
         }),
       });
 
@@ -265,7 +289,7 @@ export default function ConsolePage() {
       setIsRunning(false);
       setSessionComplete(true);
     }
-  }, [goal, isRunning, socket, address, kit, connect]);
+  }, [goal, isRunning, socket, address, kit, connect, mandateSources]);
 
   const handleSendDirective = useCallback(async (directive: string) => {
     if (!socket.sessionId || !selectedAgent) return;
@@ -364,6 +388,28 @@ export default function ConsolePage() {
               </button>
             </div>
           </div>
+
+          {/* AP2 Mandate Sources */}
+          {address && (
+            <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider font-medium mr-1">AP2 Mandate Sources</span>
+              {Object.keys(MANDATE_SOURCE_MAP).map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  disabled={isRunning}
+                  onClick={() => setMandateSources(prev => ({ ...prev, [label]: !prev[label] }))}
+                  className={`px-3 py-1 rounded-full text-[11px] font-medium border transition-all duration-200 ${
+                    mandateSources[label] 
+                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.1)]" 
+                      : "bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-700 hover:text-zinc-400"
+                  } disabled:opacity-40`}
+                >
+                  {mandateSources[label] ? "✓ " : ""}{label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ═══ Empty state ═══ */}

@@ -15,6 +15,8 @@ pub struct AgentEntry {
     pub description: String,
     pub owner:       String,
     pub registered:  u64,
+    pub total_missions:      u64,
+    pub successful_missions: u64,
 }
 
 #[contracttype]
@@ -43,6 +45,8 @@ impl AgentRegistry {
             name: name.clone(), url, price, asset,
             protocol, description, owner,
             registered: env.ledger().timestamp(),
+            total_missions: 0,
+            successful_missions: 0,
         };
 
         // Persistent storage — survives ledger gaps
@@ -72,5 +76,18 @@ impl AgentRegistry {
         env.storage().instance()
             .get(&DataKey::AgentList)
             .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    pub fn record_mission(env: Env, name: Symbol, success: bool) {
+        let mut entry = Self::get_agent(env.clone(), name.clone())
+            .unwrap_or_else(|| panic!("Agent not found"));
+            
+        entry.total_missions += 1;
+        if success {
+            entry.successful_missions += 1;
+        }
+
+        env.storage().persistent().set(&DataKey::Agent(name.clone()), &entry);
+        env.storage().persistent().extend_ttl(&DataKey::Agent(name), 100_000, 100_000);
     }
 }
