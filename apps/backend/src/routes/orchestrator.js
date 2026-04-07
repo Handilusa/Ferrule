@@ -426,11 +426,23 @@ Return ONLY the JSON object.`;
         searchContext = "No search results available. Live search unavailable or blocked by domain mandates.";
     }
 
+    // Build rich mandate enforcement summary for LLM injection
+    const executedDomains = [...new Set(allSearchResults.map(r => { try { return new URL(r.url).hostname; } catch { return r.url; } }))];
+    const spentUSDC = session.totalSpentUSDC.toFixed(4);
+    const remainingUSDC = (session.activeMandate.maxBudget - session.totalSpentUSDC).toFixed(4);
+    const whitelistStr = session.activeMandate.allowedDomains.length > 0 
+      ? session.activeMandate.allowedDomains.join(", ") 
+      : "unrestricted";
+
     const systemDirectives = `
 ---
 CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
 1. You MUST include a final section called "## Sources Used". List the EXACT URLs provided in the Search Context above. If no URLs were provided, explicitly state: "No validated sources were available within the AP2 mandated domains."
-2. You MUST include another final section called "## AP2 Mandates Enforced". Under it, write EXACTLY: "${session.mandateBlocks} x402 payment searches were autonomously blocked because the vendor's source domains did not match the strict AP2 Policy whitelist, protecting the Funder's blockchain budget."
+2. You MUST include a final section called "## AP2 Mandates Enforced". Copy this EXACTLY as written below (do NOT paraphrase):
+✓ Budget limit: ${session.activeMandate.maxBudget} USDC | Spent: ${spentUSDC} USDC | Remaining: ${remainingUSDC} USDC
+✓ ${session.searchQueries} x402 searches executed (${executedDomains.join(", ") || "none"})
+✓ ${session.mandateBlocks} payments blocked ${session.mandateBlocks > 0 ? "(source domains outside AP2 whitelist)" : "(all sources matched whitelist)"}
+✓ Domain whitelist: ${whitelistStr}
 ---`;
     
     searchContext += "\n" + systemDirectives;
