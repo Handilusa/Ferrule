@@ -419,11 +419,16 @@ export function TestnetFaucet() {
       style={{ opacity: 0, visibility: "hidden" }}
     >
       {/* Card container */}
-      <div className="relative bg-zinc-950/80 backdrop-blur-md border border-zinc-800/60 rounded-2xl overflow-hidden">
+      <div className="relative bg-zinc-950/80 backdrop-blur-md border border-zinc-800/60 rounded-2xl shadow-xl">
 
-        {/* Ambient glow */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/5 rounded-full blur-[60px] pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-emerald-500/5 rounded-full blur-[60px] pointer-events-none" />
+        {/* Ambient glow container (separated to fix black corners bug) */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-blue-500/5 rounded-full blur-[60px]" />
+          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-emerald-500/5 rounded-full blur-[60px]" />
+        </div>
+
+        {/* Content wrapper to ensure z-index above the glow */}
+        <div className="relative z-10">
 
         {/* Header */}
         <div className="px-5 pt-5 pb-3 flex items-center gap-3">
@@ -519,8 +524,6 @@ export function TestnetFaucet() {
               </span>
             ) : isDone && hasAnyError ? (
               "Retry Faucet"
-            ) : !address ? (
-              "Connect Wallet & Fund"
             ) : (
               <span className="flex items-center justify-center gap-2">
                 <StellarLogo className="w-3 h-3" />
@@ -529,11 +532,13 @@ export function TestnetFaucet() {
             )}
 
             {/* Animated shine effect on button */}
-            {!isRunning && !isDone && (
+            {!isRunning && !isDone && address && (
               <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             )}
           </button>
         </div>
+        
+        </div> {/* End z-10 wrapper */}
       </div>
     </div>
   );
