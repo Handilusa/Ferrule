@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import { useWallet } from "@/context/WalletContext";
@@ -13,7 +13,7 @@ type StepStatus = "idle" | "running" | "sign_required" | "signing" | "submitting
 interface FaucetStep {
   id: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   status: StepStatus;
   detail: string;
   txHash?: string;
@@ -21,10 +21,31 @@ interface FaucetStep {
   extra?: Record<string, string>;
 }
 
+const IconClaim = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 group-hover:text-amber-400/80 transition-colors">
+    <path d="M12 3v13M19 10l-7 7-7-7M5 21h14" opacity="0.8"/>
+  </svg>
+);
+
+const IconTrust = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 group-hover:text-blue-400/80 transition-colors">
+    <circle cx="18" cy="18" r="3" />
+    <circle cx="6" cy="6" r="3" />
+    <path d="M13 6h3a2 2 0 0 1 2 2v7M11 18H8a2 2 0 0 1-2-2V9" opacity="0.5"/>
+  </svg>
+);
+
+const IconSwap = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 group-hover:text-emerald-400/80 transition-colors">
+    <path d="M20 9V7a2 2 0 0 0-2-2h-3M4 15v2a2 2 0 0 0 2 2h3" opacity="0.5"/>
+    <path d="M12 11V5l2 2M12 5l-2 2M12 13v6l-2-2M12 19l2-2" />
+  </svg>
+);
+
 const INITIAL_STEPS: FaucetStep[] = [
-  { id: "friendbot", label: "Claim 10,000 XLM", icon: "☀️", status: "idle", detail: "Request testnet XLM from Friendbot" },
-  { id: "trustline", label: "USDC Trustline", icon: "🔗", status: "idle", detail: "Authorize USDC asset on your wallet" },
-  { id: "swap", label: "Swap XLM → USDC", icon: "💱", status: "idle", detail: "Convert XLM to USDC via Stellar DEX" },
+  { id: "friendbot", label: "Claim 10,000 XLM", icon: IconClaim, status: "idle", detail: "Request testnet XLM from Friendbot" },
+  { id: "trustline", label: "USDC Trustline", icon: IconTrust, status: "idle", detail: "Authorize USDC asset on your wallet" },
+  { id: "swap", label: "Swap XLM → USDC", icon: IconSwap, status: "idle", detail: "Convert XLM to USDC via Stellar DEX" },
 ];
 
 export function TestnetFaucet() {
@@ -98,6 +119,27 @@ export function TestnetFaucet() {
       });
     }
   }, []);
+
+  // Handle wallet disconnection
+  useEffect(() => {
+    if (!address) {
+      if (isRunning) {
+        // Disconnected mid-flight
+        setSteps(prev => prev.map(s => 
+          ["running", "signing", "submitting", "sign_required"].includes(s.status) 
+            ? { ...s, status: "error", detail: "Wallet disconnected abruptly." } 
+            : s
+        ));
+        setIsRunning(false);
+        setIsDone(true);
+      } else if (isDone) {
+        // Disconnected after finishing, soft reset
+        setIsDone(false);
+        setSteps(INITIAL_STEPS);
+        animateProgress(0);
+      }
+    }
+  }, [address, isRunning, isDone, animateProgress]);
 
   const updateStep = useCallback((stepId: string, update: Partial<FaucetStep>) => {
     setSteps(prev => prev.map(s =>
@@ -421,7 +463,9 @@ export function TestnetFaucet() {
               {/* Content */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs">{step.icon}</span>
+                  <span className="flex items-center justify-center shrink-0 w-5 h-5 rounded bg-zinc-800/50 group-hover:bg-zinc-800 transition-colors">
+                    {step.icon}
+                  </span>
                   <span className="text-xs font-medium text-zinc-300">{step.label}</span>
                   <span className={`text-[9px] font-mono uppercase tracking-wider ml-auto ${getStatusColor(step.status)}`}>
                     {getStatusLabel(step.status)}
@@ -463,6 +507,11 @@ export function TestnetFaucet() {
               <span className="flex items-center justify-center gap-2">
                 <span className="w-3 h-3 border-2 border-zinc-600 border-t-zinc-400 rounded-full animate-spin" />
                 Funding Wallet…
+              </span>
+            ) : !address ? (
+              <span className="flex items-center justify-center gap-2 font-semibold">
+                <StellarLogo className="w-3 h-3 opacity-60" />
+                Connect Wallet to Use Faucet
               </span>
             ) : isDone && !hasAnyError ? (
               <span className="flex items-center justify-center gap-2">
