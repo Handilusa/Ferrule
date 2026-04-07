@@ -3,7 +3,9 @@ const { Keypair, Networks, Contract, TransactionBuilder, BASE_FEE, rpc, xdr } = 
 const rpcServer = new rpc.Server("https://soroban-testnet.stellar.org");
 
 export async function getMandate(userId) {
-  const contractId = process.env.MANDATES_CONTRACT_ID || "CFWPD56P4N3A374Z3KEDM5YYJUB2S4P3B5J2RYEMDKN6QPK2C33UQQ7R"; // testnet mock dummy if missing
+  const contractId = process.env.MANDATES_CONTRACT_ID;
+  if (!contractId) throw new Error("MANDATES_CONTRACT_ID missing");
+  
   const contract = new Contract(contractId);
   const builder = new TransactionBuilder(
     new Keypair.random().publicKey(),
@@ -13,9 +15,28 @@ export async function getMandate(userId) {
   try {
     const simRes = await rpcServer.simulateTransaction(builder.setTimeout(30).build());
     if (simRes.result && simRes.result.retval) {
-       // Since XDR parsing inside node can be flaky for custom structs, we will return a mock mandate
-       // if we hit the contract but fail to parse.
-       return simRes.result.retval;
+       const map = simRes.result.retval.obj()?.map();
+       if (!map) return null;
+       
+       let maxBudget = 0;
+       let allowedDomains = [];
+       
+       for (let i = 0; i < map.length; i++) {
+         const entry = map[i];
+         const key = entry.key().sym().toString();
+         if (key === "max_budget_usdc" || key === "maxBudgetUsdc") {
+           // simple parse of i128 lower parts
+           maxBudget = Number(entry.val().i128().lo().low) / 1e7; 
+         }
+         if (key === "allowed_domains") {
+           const strVal = entry.val().str();
+           if (strVal) {
+             const str = typeof strVal === 'string' ? strVal : strVal.toString('utf8');
+             allowedDomains = str.split(",").map(s => s.trim()).filter(Boolean);
+           }
+         }
+       }
+       return { maxBudget, allowedDomains };
     }
   } catch (err) {
     console.error("Failed to read mandate:", err);
@@ -24,7 +45,8 @@ export async function getMandate(userId) {
 }
 
 export async function setMandate(userId, maxBudgetUsdc, allowedDomains) {
-  const contractId = process.env.MANDATES_CONTRACT_ID || "CFWPD56P4N3A374Z3KEDM5YYJUB2S4P3B5J2RYEMDKN6QPK2C33UQQ7R";
+  const contractId = process.env.MANDATES_CONTRACT_ID;
+  if (!contractId) throw new Error("MANDATES_CONTRACT_ID missing");
   const secret = process.env.ORCHESTRATOR_PRIVATE_KEY || process.env.STELLAR_SECRET_KEY_1;
   if (!secret) return false;
   

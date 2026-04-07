@@ -70,7 +70,8 @@ Ferrule implements **AP2-style mandates** on Stellar — the user defines spendi
 
 The user controls mandates through abstract checkboxes in the Mission UI (e.g., "Official Docs", "GitHub", "Security DBs"), which internally map to real domain patterns written to Soroban as CSV strings.
 
-**Contract:** `contracts/risk-mandates/src/lib.rs` — `set_mandate()`, `get_mandate()` via instance storage.
+**Contract:** `contracts/risk-mandates/src/lib.rs`
+**Verified Build Hash:** `3ca8360df3d87e1bd00defb076f81590ed96904e8fe0d53712345055bad0c0c2`
 
 ## 📊 On-Chain Agent Reputation & SLA
 
@@ -83,6 +84,9 @@ Each agent registered in the `agent-registry` Soroban contract now tracks verifi
 The Orchestrator calls `record_mission(agent_id, success)` as a **real Soroban TX** at the end of every mission — including when a mission is partially blocked by mandate enforcement (`success = false`).
 
 This creates a **trustless, on-chain reputation layer** for autonomous agents — something not currently implemented in any Soroban project for this use case.
+
+**Contract:** `contracts/agent-registry/src/lib.rs`
+**Verified Build Hash:** `d891bd511d46ea04ef0b1218ef70095a19c5b3c2b6147c421bef765f33c76bba`
 
 ## 💎 Stellar Native Economics
 Ferrule demonstrates the absolute necessity of a high-speed, low-cost network like Stellar.

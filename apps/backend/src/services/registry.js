@@ -87,8 +87,8 @@ export async function getAgent(name) {
 }
 
 export async function recordMission(name, success) {
-  const contractId = process.env.REGISTRY_CONTRACT_ID || "CAIDRIF26CKCJYTN6ZDH5HLQEJZL53YWK352OOVY56JV67MD4JKX5E5O";
-  if (!contractId) return false;
+  const contractId = process.env.REGISTRY_CONTRACT_ID;
+  if (!contractId) throw new Error("REGISTRY_CONTRACT_ID missing");
   
   const secret = process.env.ORCHESTRATOR_PRIVATE_KEY || process.env.STELLAR_SECRET_KEY_1;
   if (!secret) return false;

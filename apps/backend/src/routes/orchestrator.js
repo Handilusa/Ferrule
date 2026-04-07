@@ -231,19 +231,35 @@ Return ONLY the JSON object.`;
     addTimelineEvent(session, wss, "channel_open_done", "MPP channel opened ✓");
 
     // --- PHASE 1.5: AP2 Mandate Enforcement ---
+    const domainMapping = {
+      "GitHub": "github.com",
+      "Official Docs": "docs.*",
+      "Security DBs": "nvd.nist.gov",
+      "Tech Blogs": "*.dev/blog"
+    };
+
     if (mandateSources) {
       addTimelineEvent(session, wss, "mandate_setup", "Anchoring AP2 Risk Mandate on-chain...");
-      await setMandate(req.body.funderPublicKey, missionBudget, mandateSources);
+      const sourcesArray = mandateSources.split(",").map(s => s.trim());
+      const mappedDomains = sourcesArray.map(s => domainMapping[s] || s);
+      const csvDomains = mappedDomains.join(",");
+      await setMandate(req.body.funderPublicKey, missionBudget, csvDomains);
     }
     
     addTimelineEvent(session, wss, "mandate_check", "Verifying AP2 Risk Mandate via RPC...");
     try {
        const cachedMandate = await getMandate(req.body.funderPublicKey);
        if (cachedMandate) {
-           console.log("Cached Mandate retrieved from Soroban RPC");
+           console.log("Cached Mandate retrieved from Soroban RPC:", cachedMandate);
+           session.activeMandate.maxBudget = cachedMandate.maxBudget;
+           session.activeMandate.allowedDomains = cachedMandate.allowedDomains;
+       } else {
+           session.activeMandate.allowedDomains = mandateSources ? mandateSources.split(",").map(s => domainMapping[s.trim()] || s.trim()) : [];
        }
-       session.activeMandate.allowedDomains = mandateSources ? mandateSources.split(",") : [];
-    } catch(err) { console.error("Mandate RPC read failed", err); }
+    } catch(err) { 
+       console.error("Mandate RPC read failed", err); 
+       session.activeMandate.allowedDomains = mandateSources ? mandateSources.split(",").map(s => domainMapping[s.trim()] || s.trim()) : [];
+    }
 
     // --- PHASE 2: Search Agent queries (x402 payments) ---
     addTimelineEvent(session, wss, "search_start", "Search Agent analyzing query for tech due diligence...");
