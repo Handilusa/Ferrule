@@ -79,6 +79,7 @@ export function initBot() {
         } else {
           // If param is invalid, just act like a normal start
           await ctx.reply("❌ The linking code has expired or is invalid.");
+          return;
         }
       }
 
