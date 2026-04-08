@@ -53,13 +53,29 @@ export function initBot() {
       getSessionKey: (ctx) => ctx.from?.id.toString()
     }));
     
+    // GLOBAL ERROR HANDLER
+    bot.catch((err) => {
+      const ctx = err.ctx;
+      console.error(`[Telegram Error] error while handling update ${ctx.update.update_id}:`);
+      console.error(err.error);
+    });
+
+    // Logging middleware
+    bot.use(async (ctx, next) => {
+      if (ctx.message) {
+        console.log(`[Telegram Input] from ${ctx.from?.id}: "${ctx.message.text}"`);
+      }
+      await next();
+    });
+    
     bot.use(conversations());
     bot.use(createConversation(marketReportConversation));
 
     // START COMMAND & DEEP LINKING (Stateless HMAC verification)
     bot.command("start", async (ctx) => {
-      const param = (ctx.match || "").trim();
-      console.log(`[Telegram] /start command received. Payload: "${param}"`);
+      const rawParam = ctx.match || "";
+      const param = rawParam.trim();
+      console.log(`[Telegram] /start command received. Param: "${param}" (len: ${param.length})`);
       
       if (param && param.length >= 62) {
         // Deterministic Stateless Verification
@@ -82,11 +98,12 @@ export function initBot() {
           await ctx.reply(`✅ *Account linked with Ferrule*\n\nWallet: \`${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}\`\n\nYou will now receive market alerts here.`, { parse_mode: "Markdown" });
           return showMainMenu(ctx);
         } else {
-          console.warn(`[Telegram] ❌ Signature mismatch for wallet ${walletAddress}. Expected ${expectedSig}, got ${signature}`);
-          await ctx.reply("❌ The linking code is invalid or has been tampered with.");
+          console.warn(`[Telegram] ❌ Signature mismatch. Expected ${expectedSig}, got ${signature}`);
+          await ctx.reply("❌ The linking code is invalid or has expired. Please refresh the Ferrule Dashboard and try again.");
           return;
         }
       } else if (param) {
+          console.warn(`[Telegram] ❌ Invalid param length: ${param.length}`);
           await ctx.reply("❌ Invalid link format. Please generate a new one from the Ferrule Dashboard.");
           return;
       }
@@ -94,7 +111,7 @@ export function initBot() {
       // See if user is already linked
       const walletAddress = users.get(ctx.from.id);
       if (!walletAddress) {
-        await ctx.reply(`👋 Welcome to Ferrule.\n\nTo link this Telegram account, go to the Ferrule Dashboard in the web app, open the Monitor tab, and generate a deep link.`);
+        await ctx.reply(`👋 Welcome to Ferrule.\n\nTo link this Telegram account, go to the Ferrule Dashboard in the web app, open the Monitor tab, and generate a new deep link.`);
         return;
       }
 
