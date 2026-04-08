@@ -1,4 +1,4 @@
-import { Bot, session, InlineKeyboard } from "grammy";
+import { Bot, session, InlineKeyboard, webhookCallback } from "grammy";
 import { conversations, createConversation } from "@grammyjs/conversations";
 import crypto from "crypto";
 import { getMonitorsByUser, getMonitor, deactivateMonitor } from "./monitor-store.js";
@@ -33,7 +33,7 @@ function saveUsers() {
 }
 
 // Helper to determine base URL
-const backendUrl = () => `http://localhost:${process.env.PORT || 3000}`;
+const backendUrl = () => process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
 
 let bot = null;
 
@@ -296,17 +296,44 @@ export function initBot() {
       return showMainMenu(ctx);
     });
 
-    bot.start({
-      onStart: (botInfo) => {
-        console.log(`🤖 Telegram Bot started natively as @${botInfo.username}`);
-      }
-    });
+    // Use webhook mode for production (Render), polling for local dev
+    const webhookBase = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
+    
+    if (webhookBase) {
+      // Production: Webhook mode
+      const webhookUrl = `${webhookBase}/api/telegram/webhook`;
+      
+      // First delete any existing webhook, then set the new one
+      await bot.api.deleteWebhook({ drop_pending_updates: false });
+      await bot.api.setWebhook(webhookUrl, {
+        allowed_updates: ["message", "callback_query"],
+      });
+      
+      const botInfo = await bot.api.getMe();
+      console.log(`🤖 Telegram Bot @${botInfo.username} configured with webhook: ${webhookUrl}`);
+    } else {
+      // Local development: Long polling
+      bot.start({
+        onStart: (botInfo) => {
+          console.log(`🤖 Telegram Bot started natively as @${botInfo.username} (polling mode)`);
+        }
+      });
+    }
 
     return true;
   } catch (error) {
     console.error("❌ Fallo al inicializar Telegram Bot:", error);
     return false;
   }
+}
+
+/**
+ * Express middleware for Telegram webhook endpoint.
+ * Use with: app.post("/api/telegram/webhook", getWebhookHandler())
+ */
+export function getWebhookHandler() {
+  if (!bot) return (_req, res) => res.status(503).json({ error: "Bot not initialized" });
+  return webhookCallback(bot, "express");
 }
 
 async function showMainMenu(ctx) {

@@ -19,7 +19,7 @@ import { monitorRouter } from "./routes/monitor.js";
 import { broadcast } from "./websocket.js";
 import { registerAgent } from "./services/registry.js";
 import { startMonitorCron } from "./services/monitor-cron.js";
-import { initBot } from "./services/telegram.js";
+import { initBot, getWebhookHandler } from "./services/telegram.js";
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
@@ -55,6 +55,9 @@ app.use("/api/registry", registryRouter);
 app.use("/api/faucet", faucetRouter);
 app.use("/api/monitor", monitorRouter);
 
+// --- Telegram Webhook (must be registered AFTER bot init) ---
+// This is set up lazily after initBot() runs in the listen callback
+
 // --- WebSocket for real-time payment events ---
 const wss = setupWebSocket(server);
 
@@ -74,7 +77,13 @@ server.listen(PORT, async () => {
 
   // Start cron & telegram bot
   startMonitorCron();
-  initBot();
+  await initBot();
+
+  // Register the Telegram webhook handler after bot is initialized
+  app.post("/api/telegram/webhook", (req, res, next) => {
+    const handler = getWebhookHandler();
+    return handler(req, res, next);
+  });
 
   // Auto-register agents in Soroban background
   if (process.env.REGISTRY_CONTRACT_ID) {
