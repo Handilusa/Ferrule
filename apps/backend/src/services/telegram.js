@@ -213,21 +213,27 @@ export async function initBot() {
         return ctx.reply("No active monitors found.\n\nCreate one from the Ferrule Dashboard → Monitor tab.");
       }
 
-      const keyboard = new InlineKeyboard();
       for (const m of active) {
-        const spent = m.spentUsdc.toFixed(4);
-        const budget = m.budgetUsdc.toFixed(4);
-        const signals = m.signalsCount || 0;
-        keyboard.text(
-          `${m.pair} | ${spent}/${budget} USDC | ${signals} signals`,
-          `cancel_${m.id}`
-        ).row();
-      }
+        // Build simple progress bar
+        const perc = Math.min(100, Math.floor((m.spentUsdc / m.budgetUsdc) * 100));
+        const filled = Math.floor(perc / 10);
+        const bar = "█".repeat(filled) + "░".repeat(10 - filled);
 
-      await ctx.reply(
-        `*Active Monitors (${active.length})*\nTap a monitor to pause it:`,
-        { parse_mode: "Markdown", reply_markup: keyboard }
-      );
+        const keyboard = new InlineKeyboard();
+        keyboard.text("⏸ Pause / Cancel", `cancel_${m.id}`);
+
+        const timeString = m.lastRun ? new Date(m.lastRun).toLocaleString() : "Pending";
+        
+        await ctx.reply(
+          `📡 *${m.pair} Monitor*\n` +
+          `Status: 🟢 Active\n` +
+          `Budget: ${bar} \`${m.spentUsdc.toFixed(4)}/${m.budgetUsdc} USDC\`\n` +
+          `Last check: ${timeString}\n` +
+          `Signals sent: ${m.signalsCount}\n` +
+          `Interval: every ${m.intervalHours} hours\n`,
+          { parse_mode: "Markdown", reply_markup: keyboard }
+        );
+      }
     });
 
     bot.callbackQuery(/^cancel_(.+)$/, async (ctx) => {
