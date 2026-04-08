@@ -297,7 +297,8 @@ export async function initBot() {
     });
 
     // Use webhook mode for production (Render), polling for local dev
-    const webhookBase = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
+    const isRender = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || process.env.RENDER_EXTERNAL_URL !== undefined;
+    const webhookBase = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || (isRender ? "https://ferrule-backend.onrender.com" : null);
     
     if (webhookBase) {
       // Production: Webhook mode
