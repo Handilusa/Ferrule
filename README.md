@@ -152,4 +152,4 @@ These features are designed and ready to integrate as natural extensions of the 
 | **Cross-Chain Agent Discovery** | Extend Agent Registry to support agents on other chains (Monad, Ethereum L2s) while keeping settlement on Stellar. | Exploratory |
 
 ---
-*Built for the Stellar Meridian Hackathon.*
+*Built for the Stellar Ferrule Hackathon.*

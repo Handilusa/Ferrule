@@ -82,7 +82,7 @@ server.listen(PORT, async () => {
     try {
       await registerAgent(
         "ferrule.search",
-        "https://meridian-demo.vercel.app/api/search",
+        "https://ferrule-demo.vercel.app/api/search",
         "0.0001",
         "USDC",
         "x402",
@@ -90,7 +90,7 @@ server.listen(PORT, async () => {
       );
       await registerAgent(
         "ferrule.llm",
-        "https://meridian-demo.vercel.app/api/llm",
+        "https://ferrule-demo.vercel.app/api/llm",
         "0.00001",
         "USDC",
         "mpp",
@@ -98,7 +98,7 @@ server.listen(PORT, async () => {
       );
       await registerAgent(
         "ferrule.risk",
-        "https://meridian-demo.vercel.app/api/risk",
+        "https://ferrule-demo.vercel.app/api/risk",
         "0.005",
         "USDC",
         "x402",

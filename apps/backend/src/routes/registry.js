@@ -8,7 +8,7 @@ const CONTRACT_ID = process.env.REGISTRY_CONTRACT_ID || "CAIDRIF26CKCJYTN6ZDH5HL
 const REGISTERED_AGENTS = [
   {
     name: "ferrule.search",
-    url: "https://meridian-demo.vercel.app/api/search",
+    url: "https://ferrule-demo.vercel.app/api/search",
     price: "0.0001",
     asset: "USDC",
     protocol: "x402",
@@ -18,7 +18,7 @@ const REGISTERED_AGENTS = [
   },
   {
     name: "ferrule.llm",
-    url: "https://meridian-demo.vercel.app/api/llm",
+    url: "https://ferrule-demo.vercel.app/api/llm",
     price: "0.00001",
     asset: "USDC",
     protocol: "mpp",
@@ -28,7 +28,7 @@ const REGISTERED_AGENTS = [
   },
   {
     name: "ferrule.risk",
-    url: "https://meridian-demo.vercel.app/api/risk",
+    url: "https://ferrule-demo.vercel.app/api/risk",
     price: "0.005",
     asset: "USDC",
     protocol: "x402",
