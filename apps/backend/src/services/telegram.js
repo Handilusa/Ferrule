@@ -118,19 +118,9 @@ export function initBot() {
       await ctx.answerCallbackQuery();
     });
 
-    bot.callbackQuery(/^cancel_(.+)$/, async (ctx) => {
-        const monitorId = ctx.match[1];
-        const success = deactivateMonitor(monitorId);
-        
-        if (success) {
-            await ctx.reply(`✅ Monitor \`${monitorId.slice(0, 8)}\` successfully paused.`, { parse_mode: "Markdown" });
-        } else {
-            await ctx.reply("❌ Could not find the monitor or it was already paused.");
-        }
-        await ctx.answerCallbackQuery();
-    });
 
     bot.callbackQuery("history_list", async (ctx) => {
+      await ctx.answerCallbackQuery();
       const walletAddress = users.get(ctx.from.id);
       if (!walletAddress) return ctx.reply("You are not linked to any account.");
       
@@ -146,10 +136,8 @@ export function initBot() {
         }
 
         const keyboard = new InlineKeyboard();
-        // Limit to latest 5 reports directly verifiable via hash
         for (const r of reports.slice(0, 5)) {
           const status = r.anchorHash ? "✅" : "⚠️";
-          // Create short vendor/query string
           const queryShort = r.query ? r.query.slice(0, 20) + "..." : "Monitor Analysis";
           const d = new Date(r.timestamp).toLocaleDateString();
           
@@ -167,10 +155,10 @@ export function initBot() {
         console.error("Telegram fetch history error:", err);
         await ctx.reply("❌ There was an error retrieving the history.");
       }
-      await ctx.answerCallbackQuery();
     });
 
     bot.callbackQuery(/^report_(.+)$/, async (ctx) => {
+      await ctx.answerCallbackQuery();
       const txHash = ctx.match[1];
       
       try {
@@ -178,9 +166,7 @@ export function initBot() {
         if (!res.ok) throw new Error("Report not found");
         const reportRaw = await res.json();
         
-        // Extract early summary & Risk Score from the long report body
         const report = reportRaw.report || "";
-        // Match things like Risk Score: 50/100 or Risk Assessment...
         const riskMatch = report.match(/([0-9]{1,3}\/100)/);
         const riskScoreStr = riskMatch ? riskMatch[1] : "N/A";
         
@@ -198,32 +184,30 @@ export function initBot() {
       } catch (err) {
          await ctx.reply("❌ Could not locate that report in current memory.");
       }
-      await ctx.answerCallbackQuery();
     });
 
     bot.callbackQuery("new_monitor", async (ctx) => {
-        await ctx.reply("To start a recurring monitoring mission, open the Ferrule Dashboard (web interface) and configure your interval and budget preferences in the 'Monitor' tab.");
         await ctx.answerCallbackQuery();
+        await ctx.reply("To start a recurring monitoring mission, open the Ferrule Dashboard (web interface) and configure your interval and budget preferences in the 'Monitor' tab.");
     });
 
     bot.callbackQuery("market_report_flow", async (ctx) => {
-        await ctx.conversation.enter("marketReportConversation");
         await ctx.answerCallbackQuery();
+        await ctx.conversation.enter("marketReportConversation");
     });
 
     bot.callbackQuery("monitors_list", async (ctx) => {
+      await ctx.answerCallbackQuery();
       const walletAddress = users.get(ctx.from.id);
       if (!walletAddress) {
-        await ctx.reply("You need to link your wallet first. Use the Ferrule Dashboard to generate a deep link.");
-        return ctx.answerCallbackQuery();
+        return ctx.reply("You need to link your wallet first. Use the Ferrule Dashboard to generate a deep link.");
       }
 
       const monitors = getMonitorsByUser(walletAddress);
       const active = monitors.filter(m => m.active);
 
       if (active.length === 0) {
-        await ctx.reply("No active monitors found.\n\nCreate one from the Ferrule Dashboard → Monitor tab.");
-        return ctx.answerCallbackQuery();
+        return ctx.reply("No active monitors found.\n\nCreate one from the Ferrule Dashboard → Monitor tab.");
       }
 
       const keyboard = new InlineKeyboard();
@@ -241,10 +225,10 @@ export function initBot() {
         `*Active Monitors (${active.length})*\nTap a monitor to pause it:`,
         { parse_mode: "Markdown", reply_markup: keyboard }
       );
-      await ctx.answerCallbackQuery();
     });
 
     bot.callbackQuery(/^cancel_(.+)$/, async (ctx) => {
+      await ctx.answerCallbackQuery();
       const monitorId = ctx.match[1];
       const success = deactivateMonitor(monitorId);
       if (success) {
@@ -252,12 +236,11 @@ export function initBot() {
       } else {
         await ctx.reply("Could not find that monitor. It may have already been deactivated.");
       }
-      await ctx.answerCallbackQuery();
     });
 
     bot.callbackQuery("help", async (ctx) => {
-        await ctx.reply("*Ferrule Monitor*\nThis identity serves to autonomously notify you if Ferrule detects risks or market movements based on its assigned x402 budget on Soroban.\n\nType /start to view the main menu.", { parse_mode: "Markdown" });
         await ctx.answerCallbackQuery();
+        await ctx.reply("*Ferrule Monitor*\nThis identity serves to autonomously notify you if Ferrule detects risks or market movements based on its assigned x402 budget on Soroban.\n\nType /start to view the main menu.", { parse_mode: "Markdown" });
     });
 
     // Persistent Commands Menu for Telegram UI
