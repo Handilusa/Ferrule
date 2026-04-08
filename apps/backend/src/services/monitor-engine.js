@@ -20,7 +20,7 @@ export async function runMonitorCycle(monitor) {
     // 1. Budget check
     if (monitor.spentUsdc + SEARCH_COST + LLM_COST > monitor.budgetUsdc) {
       console.log(`[Monitor ${monitor.id}] Budget exhausted.`);
-      deactivateMonitor(monitor.id);
+      await deactivateMonitor(monitor.id);
       if (monitor.telegramChatId) {
         // Send a direct message manually about budget
         const { bot } = await import("./telegram.js").catch(() => ({}));

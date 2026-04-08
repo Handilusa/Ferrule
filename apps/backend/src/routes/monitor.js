@@ -82,8 +82,8 @@ router.get("/user/:wallet", (req, res) => {
 });
 
 // 4. Deactivate
-router.delete("/:id", (req, res) => {
-  const success = deactivateMonitor(req.params.id);
+router.delete("/:id", async (req, res) => {
+  const success = await deactivateMonitor(req.params.id);
   res.json({ success });
 });
 

@@ -268,7 +268,7 @@ export function initBot() {
     bot.callbackQuery(/^cancel_(.+)$/, async (ctx) => {
       await ctx.answerCallbackQuery();
       const monitorId = ctx.match[1];
-      const success = deactivateMonitor(monitorId);
+      const success = await deactivateMonitor(monitorId);
       if (success) {
         await ctx.reply(`Monitor \`${monitorId.slice(0, 8)}...\` has been paused.`, { parse_mode: "Markdown" });
       } else {
