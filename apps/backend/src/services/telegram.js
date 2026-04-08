@@ -12,8 +12,6 @@ import path from "path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USERS_FILE = path.resolve(__dirname, "../../telegram-users.json");
 
-const USERS_FILE = path.resolve(__dirname, "../../telegram-users.json");
-
 // Load users from file to persist across server restarts
 let userMapInitial = [];
 try {
