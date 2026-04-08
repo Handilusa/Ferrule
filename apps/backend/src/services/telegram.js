@@ -37,7 +37,7 @@ const backendUrl = () => process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_
 
 let bot = null;
 
-export function initBot() {
+export async function initBot() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     console.warn("⚠️ TELEGRAM_BOT_TOKEN missing in environment. Telegram bot will not be started.");
