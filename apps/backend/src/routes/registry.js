@@ -7,7 +7,7 @@ const CONTRACT_ID = process.env.REGISTRY_CONTRACT_ID || "CAIDRIF26CKCJYTN6ZDH5HL
 // Registered agents — mirrors what server.js auto-registers on-chain
 const REGISTERED_AGENTS = [
   {
-    name: "ferrule.search",
+    name: "ferrule_search",
     url: "https://ferrule-demo.vercel.app/api/search",
     price: "0.0001",
     asset: "USDC",
@@ -17,7 +17,7 @@ const REGISTERED_AGENTS = [
     explorer: `https://stellar.expert/explorer/testnet/contract/${CONTRACT_ID}`,
   },
   {
-    name: "ferrule.llm",
+    name: "ferrule_llm",
     url: "https://ferrule-demo.vercel.app/api/llm",
     price: "0.00001",
     asset: "USDC",
@@ -27,7 +27,7 @@ const REGISTERED_AGENTS = [
     explorer: `https://stellar.expert/explorer/testnet/contract/${CONTRACT_ID}`,
   },
   {
-    name: "ferrule.risk",
+    name: "ferrule_risk",
     url: "https://ferrule-demo.vercel.app/api/risk",
     price: "0.005",
     asset: "USDC",

@@ -1,4 +1,4 @@
-import { deactivateMonitor } from "./monitor-store.js";
+import { deactivateMonitor, saveMonitors } from "./monitor-store.js";
 import { sendMonitorAlert } from "./telegram.js";
 import { fastChatResponse, streamRiskAnalysis } from "./gemini.js";
 import { recordMission } from "./registry.js";
@@ -121,6 +121,9 @@ export async function runMonitorCycle(monitor) {
         console.log(`[Monitor ${monitor.id}] Layer 1 triage skipped Deep Analysis.`);
         monitor.history.push({ ts: Date.now(), signal: "NO_SIGNAL", triage: responseL1 });
     }
+    
+    // Persist mutated monitor state
+    saveMonitors();
   } catch (err) {
     console.error(`[Monitor ${monitor.id}] Cycle failed:`, err);
   }

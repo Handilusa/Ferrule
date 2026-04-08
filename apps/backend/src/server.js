@@ -81,7 +81,7 @@ server.listen(PORT, async () => {
     console.log("⚙️  Registering Agents to Soroban Ledger...");
     try {
       await registerAgent(
-        "ferrule.search",
+        "ferrule_search",
         "https://ferrule-demo.vercel.app/api/search",
         "0.0001",
         "USDC",
@@ -89,7 +89,7 @@ server.listen(PORT, async () => {
         "Due diligence web search — SaaS, security, compliance"
       );
       await registerAgent(
-        "ferrule.llm",
+        "ferrule_llm",
         "https://ferrule-demo.vercel.app/api/llm",
         "0.00001",
         "USDC",
@@ -97,7 +97,7 @@ server.listen(PORT, async () => {
         "Due diligence token streamer — Architecture parser"
       );
       await registerAgent(
-        "ferrule.risk",
+        "ferrule_risk",
         "https://ferrule-demo.vercel.app/api/risk",
         "0.005",
         "USDC",

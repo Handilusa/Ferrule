@@ -1,8 +1,31 @@
 // monitor-store.js
-// In-memory store for active monitors (acceptable for hackathon demo)
 import crypto from "crypto";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
 
-const monitors = new Map();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const MONITORS_FILE = path.resolve(__dirname, "../../monitors.json");
+
+let initialMonitors = [];
+try {
+  if (fs.existsSync(MONITORS_FILE)) {
+    initialMonitors = JSON.parse(fs.readFileSync(MONITORS_FILE, "utf-8"));
+    console.log(`[Monitor Store] Loaded ${initialMonitors.length} monitors from disk.`);
+  }
+} catch(e) {
+  console.warn("[Monitor Store] Could not load monitors.json:", e.message);
+}
+
+const monitors = new Map(initialMonitors);
+
+export function saveMonitors() {
+  try {
+    fs.writeFileSync(MONITORS_FILE, JSON.stringify(Array.from(monitors.entries())));
+  } catch(e) {
+    console.error("[Monitor Store] Failed to save:", e.message);
+  }
+}
 
 /**
  * Creates a new active monitor.
@@ -23,6 +46,7 @@ export function createMonitor({ userId, pair, budgetUsdc, telegramChatId, interv
     signalsCount: 0
   };
   monitors.set(id, monitor);
+  saveMonitors();
   return id;
 }
 
@@ -66,6 +90,7 @@ export function deactivateMonitor(id) {
   const m = monitors.get(id);
   if (m) {
     m.active = false;
+    saveMonitors();
     return true;
   }
   return false;

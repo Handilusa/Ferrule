@@ -6,6 +6,11 @@ import { getPriceData } from "./price-feed.js";
 import { computeIndicators, buildMarketPrompt, detectSignal, rsiSignal } from "./technical-analysis.js";
 import { streamRiskAnalysis } from "./gemini.js";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const USERS_FILE = path.resolve(__dirname, "../../telegram-users.json");
 
 // In-memory mapping stores
 // linkCodes maps: code -> walletAddress (userId)
@@ -14,14 +19,21 @@ const linkCodes = new Map();
 // Load users from file to persist across server restarts
 let userMapInitial = [];
 try {
-  if (fs.existsSync("telegram-users.json")) {
-    userMapInitial = JSON.parse(fs.readFileSync("telegram-users.json", "utf-8"));
+  if (fs.existsSync(USERS_FILE)) {
+    userMapInitial = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
+    console.log(`[Telegram] Loaded ${userMapInitial.length} linked users from disk.`);
   }
-} catch(e) {}
+} catch(e) {
+  console.warn("[Telegram] Could not load telegram-users.json:", e.message);
+}
 export const users = new Map(userMapInitial);
 
 function saveUsers() {
-  fs.writeFileSync("telegram-users.json", JSON.stringify(Array.from(users.entries())));
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(Array.from(users.entries())));
+  } catch(e) {
+    console.error("[Telegram] Failed to save users:", e.message);
+  }
 }
 
 // Helper to determine base URL
