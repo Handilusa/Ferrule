@@ -176,6 +176,25 @@ export async function fastChatResponse(prompt, systemPrompt) {
  * Stream Risk Agent analysis.
  */
 export async function streamRiskAnalysis(report, sources, onBatch, directive = "") {
+  if (directive.includes("mode: trading_monitor")) {
+    try {
+      const responseText = await fastChatResponse(report, "Eres Ferrule, el analista Quant de derivados institucionales.");
+      return {
+          riskScore: 0,
+          riskBreakdown: { security: 0, lockIn: 0, pricing: 0, dependency: 0, maturity: 0 },
+          gaps: [],
+          fullRiskReport: responseText
+      };
+    } catch(err) {
+       return {
+          riskScore: 0,
+          riskBreakdown: { security: 0, lockIn: 0, pricing: 0, dependency: 0, maturity: 0 },
+          gaps: [],
+          fullRiskReport: "Quant analysis generation failed." 
+       };
+    }
+  }
+
   let extraDirectives = directive ? `\nUSER DIRECTIVE (CRITICAL): ${directive}\n` : "";
   const systemPrompt = `You are Ferrule's autonomous Risk Agent. Your job is to read a preliminary Due Diligence report and evaluate the vendor's risk profile objectively.
 ${extraDirectives}

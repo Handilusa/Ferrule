@@ -15,8 +15,11 @@ import { searchAgentRouter } from "./routes/search-agent.js";
 import { riskAgentRouter } from "./routes/risk-agent.js";
 import { registryRouter } from "./routes/registry.js";
 import { faucetRouter } from "./routes/faucet.js";
+import { monitorRouter } from "./routes/monitor.js";
 import { broadcast } from "./websocket.js";
 import { registerAgent } from "./services/registry.js";
+import { startMonitorCron } from "./services/monitor-cron.js";
+import { initBot } from "./services/telegram.js";
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
@@ -50,6 +53,7 @@ app.use("/api/search", searchAgentRouter);
 app.use("/api/risk", riskAgentRouter);
 app.use("/api/registry", registryRouter);
 app.use("/api/faucet", faucetRouter);
+app.use("/api/monitor", monitorRouter);
 
 // --- WebSocket for real-time payment events ---
 const wss = setupWebSocket(server);
@@ -67,6 +71,10 @@ server.listen(PORT, async () => {
 ║   Agents: Orchestrator + LLM (MPP) + Search (x402)║
 ╚═══════════════════════════════════════════════════╝
   `);
+
+  // Start cron & telegram bot
+  startMonitorCron();
+  initBot();
 
   // Auto-register agents in Soroban background
   if (process.env.REGISTRY_CONTRACT_ID) {

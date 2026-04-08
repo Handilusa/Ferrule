@@ -1,5 +1,5 @@
 import * as StellarSdk from "@stellar/stellar-sdk";
-const { Keypair, Networks, Contract, TransactionBuilder, BASE_FEE, rpc, scValToNative, xdr } = StellarSdk;
+const { Keypair, Networks, Contract, TransactionBuilder, BASE_FEE, rpc, scValToNative, nativeToScVal, xdr } = StellarSdk;
 const rpcServer = new rpc.Server("https://soroban-testnet.stellar.org");
 
 export async function registerAgent(name, url, price, asset, protocol, description) {
@@ -17,7 +17,7 @@ export async function registerAgent(name, url, price, asset, protocol, descripti
   const args = [
     xdr.ScVal.scvSymbol(name),
     xdr.ScVal.scvString(url),
-    xdr.ScVal.scvI128(new xdr.Int128Parts({ hi: new xdr.Int64(0, 0), lo: new xdr.Uint64(0, price) })), // price in Int128
+    nativeToScVal(BigInt(Math.floor(parseFloat(price) * 10000000)), { type: "i128" }), // price in stroops
     xdr.ScVal.scvSymbol(asset),
     xdr.ScVal.scvSymbol(protocol),
     xdr.ScVal.scvString(description),

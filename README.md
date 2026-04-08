@@ -2,6 +2,8 @@
 
 > **Autonomous Tech & Risk Evaluation. Paid per report via x402/MPP. Anchored on Stellar.**
 
+**Ferrule uses x402 and MPP Session to enable autonomous agent-to-agent payments on Stellar, with every market analysis request settled as a real on-chain transaction in USDC.**
+
 Ferrule is a next-generation research console designed for CTOs, CISOs, and DevOps leads who need to evaluate B2B software vendors (monitoring, security, logging, payments, etc.) without spending weeks on manual due diligence. 
 
 Instead of generic LLM web-searches that hallucinate facts or suffer from confirmation bias, **Ferrule orchestrates an autonomous network of specialized agents** that cross-examine documentation, uncover vendor lock-in, and assess security risks. 
@@ -57,6 +59,21 @@ sequenceDiagram
     O->>S: TX 3: Settle channels & Distribute USDC
     
     O-->>U: Final Report + On-chain Verification Hash
+```
+
+### Quantitative Market Monitor (Perpetual Telegram Agent)
+```mermaid
+sequenceDiagram
+    User->>TelegramBot: /snapshot XLM/USDC
+    TelegramBot->>PriceFeed: getOHLCV(200 candles)
+    PriceFeed->>Binance: REST API
+    TelegramBot->>QuantEngine: RSI + ATR + EMA + MACD
+    TelegramBot->>x402Gateway: POST /analyze (pay-per-request)
+    x402Gateway->>StellarTestnet: USDC payment tx
+    StellarTestnet-->>x402Gateway: txHash confirmed
+    x402Gateway->>Gemini: buildMarketPrompt()
+    Gemini-->>TelegramBot: markdown report
+    TelegramBot-->>User: ⚡ informe + 🔗 txHash
 ```
 
 ## 🛡️ AP2 Risk Mandates (On-Chain Policy Enforcement)

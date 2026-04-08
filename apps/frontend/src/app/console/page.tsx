@@ -18,6 +18,8 @@ import { HITLModal } from "@/components/console/HITLModal";
 import { HistoryPanel } from "@/components/console/HistoryPanel";
 import { TestnetFaucet } from "@/components/console/TestnetFaucet";
 import { AmbientBackground } from "@/components/AmbientBackground";
+import { MonitorSetup } from "@/components/console/MonitorSetup";
+import { MonitorPanel } from "@/components/console/MonitorPanel";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -182,6 +184,8 @@ export default function ConsolePage() {
   const [resultText, setResultText] = useState("");
   const [goal, setGoal] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"mission"|"monitor">("mission");
+  const [monitorRefresh, setMonitorRefresh] = useState(0);
   const [mobileTab, setMobileTab] = useState<"session" | "feed" | "network" | "output">("session");
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -352,7 +356,46 @@ export default function ConsolePage() {
       </header>
 
       <main className="flex-1 w-full px-4 lg:px-8 pt-6 pb-8 flex flex-col gap-4 overflow-y-auto scrollbar-thin">
+        {/* ═══ Mode Toggle Tabs ═══ */}
+        <div className="flex justify-center mb-2">
+            <div className="flex bg-zinc-900 border border-zinc-800 rounded-full p-1 sticky top-0 z-50 shadow-2xl">
+                <button onClick={() => setActiveTab("mission")} className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-mono transition-colors ${activeTab === 'mission' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                    <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    Mission
+                </button>
+                <button onClick={() => setActiveTab("monitor")} className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-mono transition-colors ${activeTab === 'monitor' ? 'bg-zinc-800 text-white shadow' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                    <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>
+                    Monitor
+                </button>
+            </div>
+        </div>
+
+        {activeTab === "monitor" && (
+           !address ? (
+            <div className="flex flex-col items-center justify-center p-12 bg-zinc-950/50 rounded-2xl border border-zinc-800/50 mt-6 border-dashed h-[50vh]">
+               <div className="w-16 h-16 mb-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                  <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+               </div>
+               <h3 className="text-xl font-light text-white mb-2">Connect Your Wallet</h3>
+               <p className="text-zinc-500 font-mono text-sm max-w-sm text-center mb-6">Authenticate with your Stellar wallet to set up autonomous quantitative monitors on the Testnet.</p>
+               <button onClick={connect} className="px-8 py-3 bg-emerald-500/20 text-emerald-400 rounded-full font-mono text-sm border border-emerald-500/30 hover:bg-emerald-500/30 transition-all shadow-xl shadow-emerald-900/20">
+                 Connect Stellar Wallet
+               </button>
+            </div>
+           ) : (
+           <div className="grid lg:grid-cols-3 gap-6">
+             <div className="lg:col-span-1">
+                <MonitorSetup backendUrl={BACKEND_URL} onMonitorCreated={() => setMonitorRefresh(r => r + 1)} />
+             </div>
+             <div className="lg:col-span-2">
+                <MonitorPanel backendUrl={BACKEND_URL} refreshTrigger={monitorRefresh} />
+             </div>
+           </div>
+           )
+        )}
+
         {/* ═══ Mission Input Bar ═══ */}
+        {activeTab === "mission" && (
         <div className="shrink-0 relative z-50 bg-black rounded-xl border border-zinc-900 shadow-2xl p-1">
           <div className="flex flex-col sm:flex-row gap-3 items-stretch">
             <textarea
@@ -412,9 +455,10 @@ export default function ConsolePage() {
             </div>
           )}
         </div>
+        )}
 
         {/* ═══ Empty state ═══ */}
-        {!showDashboard && (
+        {!showDashboard && activeTab === "mission" && (
           <div className="flex-1 flex flex-col items-center justify-center py-10 text-center relative z-10">
             <FerruleLogo className="w-16 h-16 mb-6 opacity-20" />
             <p className="text-zinc-600 text-sm max-w-md">
@@ -426,7 +470,7 @@ export default function ConsolePage() {
         )}
 
         {/* ═══ Dashboard ═══ */}
-        {showDashboard && (
+        {showDashboard && activeTab === "mission" && (
           <div className="flex flex-col gap-4">
             
             {/* KPI Strip */}
