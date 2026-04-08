@@ -930,7 +930,7 @@ router.get("/verify/:hash", (req, res) => {
   // Search memory for the session with the matching hash
   let foundSession = null;
   for (const session of sessions.values()) {
-    if (session.reportHash === hash && session.status === "complete") {
+    if (session.reportHash && session.reportHash.startsWith(hash) && session.status === "complete") {
       foundSession = session;
       break;
     }

@@ -181,7 +181,7 @@ export function initBot() {
           
           keyboard.text(
             `${status} ${queryShort} — ${d}`,
-            `report_${r.reportHash}`
+            `report_${r.reportHash.slice(0, 40)}`
           ).row();
         }
 
