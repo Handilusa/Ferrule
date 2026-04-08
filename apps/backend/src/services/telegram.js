@@ -211,6 +211,50 @@ export function initBot() {
         await ctx.answerCallbackQuery();
     });
 
+    bot.callbackQuery("monitors_list", async (ctx) => {
+      const walletAddress = users.get(ctx.from.id);
+      if (!walletAddress) {
+        await ctx.reply("You need to link your wallet first. Use the Ferrule Dashboard to generate a deep link.");
+        return ctx.answerCallbackQuery();
+      }
+
+      const monitors = getMonitorsByUser(walletAddress);
+      const active = monitors.filter(m => m.active);
+
+      if (active.length === 0) {
+        await ctx.reply("No active monitors found.\n\nCreate one from the Ferrule Dashboard → Monitor tab.");
+        return ctx.answerCallbackQuery();
+      }
+
+      const keyboard = new InlineKeyboard();
+      for (const m of active) {
+        const spent = m.spentUsdc.toFixed(4);
+        const budget = m.budgetUsdc.toFixed(4);
+        const signals = m.signalsCount || 0;
+        keyboard.text(
+          `${m.pair} | ${spent}/${budget} USDC | ${signals} signals`,
+          `cancel_${m.id}`
+        ).row();
+      }
+
+      await ctx.reply(
+        `*Active Monitors (${active.length})*\nTap a monitor to pause it:`,
+        { parse_mode: "Markdown", reply_markup: keyboard }
+      );
+      await ctx.answerCallbackQuery();
+    });
+
+    bot.callbackQuery(/^cancel_(.+)$/, async (ctx) => {
+      const monitorId = ctx.match[1];
+      const success = deactivateMonitor(monitorId);
+      if (success) {
+        await ctx.reply(`Monitor \`${monitorId.slice(0, 8)}...\` has been paused.`, { parse_mode: "Markdown" });
+      } else {
+        await ctx.reply("Could not find that monitor. It may have already been deactivated.");
+      }
+      await ctx.answerCallbackQuery();
+    });
+
     bot.callbackQuery("help", async (ctx) => {
         await ctx.reply("*Ferrule Monitor*\nThis identity serves to autonomously notify you if Ferrule detects risks or market movements based on its assigned x402 budget on Soroban.\n\nType /start to view the main menu.", { parse_mode: "Markdown" });
         await ctx.answerCallbackQuery();
