@@ -12,24 +12,7 @@ import path from "path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USERS_FILE = path.resolve(__dirname, "../../telegram-users.json");
 
-// In-memory mapping stores with file persistence
-const LINK_CODES_FILE = path.resolve(__dirname, "../../link-codes.json");
-
-let linkCodesInitial = [];
-try {
-  if (fs.existsSync(LINK_CODES_FILE)) {
-    linkCodesInitial = JSON.parse(fs.readFileSync(LINK_CODES_FILE, "utf-8"));
-  }
-} catch(e) {}
-const linkCodes = new Map(linkCodesInitial);
-
-function saveLinkCodes() {
-  try {
-    fs.writeFileSync(LINK_CODES_FILE, JSON.stringify(Array.from(linkCodes.entries())));
-  } catch(e) {
-    console.error("[Telegram] Failed to save link codes:", e.message);
-  }
-}
+const USERS_FILE = path.resolve(__dirname, "../../telegram-users.json");
 
 // Load users from file to persist across server restarts
 let userMapInitial = [];
@@ -75,28 +58,39 @@ export function initBot() {
     bot.use(conversations());
     bot.use(createConversation(marketReportConversation));
 
-    // START COMMAND & DEEP LINKING
+    // START COMMAND & DEEP LINKING (Stateless HMAC verification)
     bot.command("start", async (ctx) => {
-      const param = ctx.match; // captures "?start=PARAM"
+      const param = (ctx.match || "").trim();
+      console.log(`[Telegram] /start command received. Payload: "${param}"`);
       
-      if (param) {
-        // Evaluate deep link
-        if (linkCodes.has(param)) {
-          const walletAddress = linkCodes.get(param);
-          // Link this chat to the user's wallet
+      if (param && param.length === 64) {
+        // Deterministic Stateless Verification
+        // format: [WALLET(56 chars)][SIG(8 chars)]
+        const walletAddress = param.slice(0, 56).toUpperCase();
+        const signature = param.slice(56);
+        
+        const salt = process.env.TELEGRAM_BOT_TOKEN || "FERRULE_INTERNAL_SALT";
+        const expectedSig = crypto.createHmac("sha256", salt)
+          .update(walletAddress)
+          .digest("hex")
+          .slice(0, 8);
+
+        if (signature === expectedSig) {
+          console.log(`[Telegram] ✅ Signature verified for ${walletAddress}. Linking...`);
+          
           users.set(ctx.from.id, walletAddress);
           saveUsers();
-          // Delete link code to prevent reuse
-          linkCodes.delete(param);
-          saveLinkCodes();
 
-          await ctx.reply(`✅ *Account linked with Ferrule*\n\nWallet: \`${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}\`\n\nYou will now receive alerts here.`, { parse_mode: "Markdown" });
+          await ctx.reply(`✅ *Account linked with Ferrule*\n\nWallet: \`${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}\`\n\nYou will now receive market alerts here.`, { parse_mode: "Markdown" });
           return showMainMenu(ctx);
         } else {
-          // If param is invalid, just act like a normal start
-          await ctx.reply("❌ The linking code has expired or is invalid.");
+          console.warn(`[Telegram] ❌ Signature mismatch for wallet ${walletAddress}. Expected ${expectedSig}, got ${signature}`);
+          await ctx.reply("❌ The linking code is invalid or has been tampered with.");
           return;
         }
+      } else if (param) {
+          await ctx.reply("❌ Invalid link format. Please generate a new one from the Ferrule Dashboard.");
+          return;
       }
 
       // See if user is already linked
@@ -319,19 +313,20 @@ async function showMainMenu(ctx) {
 }
 
 /**
- * Generate a deep link for the user to click in frontend.
+ * Generate a deterministic stateless link code using HMAC.
+ * 64 chars = 56 (address) + 8 (signature)
  */
 export function generateDeepLinkCode(walletAddress) {
-    // Return existing code if we already generated one for this wallet
-    for (const [existingCode, mappedWallet] of linkCodes.entries()) {
-        if (mappedWallet === walletAddress) {
-            return existingCode;
-        }
-    }
+    const cleanWallet = walletAddress.trim().toUpperCase();
+    const salt = process.env.TELEGRAM_BOT_TOKEN || "FERRULE_INTERNAL_SALT";
     
-    const code = crypto.randomUUID().slice(0, 8);
-    linkCodes.set(code, walletAddress);
-    saveLinkCodes();
+    const signature = crypto.createHmac("sha256", salt)
+        .update(cleanWallet)
+        .digest("hex")
+        .slice(0, 8);
+        
+    const code = `${cleanWallet}${signature}`;
+    console.log(`[Telegram] Generated stateless code for ${cleanWallet.slice(0,8)}...: ${code}`);
     return code;
 }
 
