@@ -33,7 +33,10 @@ function saveUsers() {
 }
 
 // Helper to determine base URL
-const backendUrl = () => process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3000}`;
+const backendUrl = () => {
+    const isRender = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || process.env.RENDER_EXTERNAL_URL !== undefined;
+    return process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || (isRender ? "https://ferrule-backend.onrender.com" : `http://localhost:${process.env.PORT || 3000}`);
+};
 
 let bot = null;
 
