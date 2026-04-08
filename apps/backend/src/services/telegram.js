@@ -12,9 +12,24 @@ import path from "path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USERS_FILE = path.resolve(__dirname, "../../telegram-users.json");
 
-// In-memory mapping stores
-// linkCodes maps: code -> walletAddress (userId)
-const linkCodes = new Map();
+// In-memory mapping stores with file persistence
+const LINK_CODES_FILE = path.resolve(__dirname, "../../link-codes.json");
+
+let linkCodesInitial = [];
+try {
+  if (fs.existsSync(LINK_CODES_FILE)) {
+    linkCodesInitial = JSON.parse(fs.readFileSync(LINK_CODES_FILE, "utf-8"));
+  }
+} catch(e) {}
+const linkCodes = new Map(linkCodesInitial);
+
+function saveLinkCodes() {
+  try {
+    fs.writeFileSync(LINK_CODES_FILE, JSON.stringify(Array.from(linkCodes.entries())));
+  } catch(e) {
+    console.error("[Telegram] Failed to save link codes:", e.message);
+  }
+}
 
 // Load users from file to persist across server restarts
 let userMapInitial = [];
@@ -73,6 +88,7 @@ export function initBot() {
           saveUsers();
           // Delete link code to prevent reuse
           linkCodes.delete(param);
+          saveLinkCodes();
 
           await ctx.reply(`✅ *Account linked with Ferrule*\n\nWallet: \`${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}\`\n\nYou will now receive alerts here.`, { parse_mode: "Markdown" });
           return showMainMenu(ctx);
@@ -315,6 +331,7 @@ export function generateDeepLinkCode(walletAddress) {
     
     const code = crypto.randomUUID().slice(0, 8);
     linkCodes.set(code, walletAddress);
+    saveLinkCodes();
     return code;
 }
 
