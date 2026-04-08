@@ -160,11 +160,16 @@ export function MonitorSetup({ backendUrl, onMonitorCreated }: { backendUrl: str
              </div>
            )}
            {telegramStatus === "unlinked" && linkCode && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-zinc-400">Link your account for push alerts.</span>
-                <a href={`https://t.me/Furrule_monitor_bot?start=${linkCode}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-[#0088cc] text-white rounded-lg text-sm font-medium hover:bg-[#0077b5] transition-colors">
-                  Link Telegram
-                </a>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-zinc-400">Link your account for push alerts.</span>
+                  <a href={`https://t.me/Furrule_monitor_bot?start=${linkCode}`} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-[#0088cc] text-white rounded-lg text-sm font-medium hover:bg-[#0077b5] transition-colors">
+                    Link Telegram
+                  </a>
+                </div>
+                <p className="text-[10px] text-zinc-500 font-mono text-center bg-zinc-800/50 py-1 rounded-md">
+                  ⚠️ Remember to click the <span className="text-white font-bold">START</span> or <span className="text-white font-bold">RESTART</span> button in the Telegram app once it opens.
+                </p>
               </div>
            )}
         </div>

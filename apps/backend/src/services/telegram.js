@@ -61,9 +61,9 @@ export function initBot() {
       const param = (ctx.match || "").trim();
       console.log(`[Telegram] /start command received. Payload: "${param}"`);
       
-      if (param && param.length === 64) {
+      if (param && param.length >= 62) {
         // Deterministic Stateless Verification
-        // format: [WALLET(56 chars)][SIG(8 chars)]
+        // format: [WALLET(56 chars)][SIG(6+ chars)]
         const walletAddress = param.slice(0, 56).toUpperCase();
         const signature = param.slice(56);
         
@@ -71,7 +71,7 @@ export function initBot() {
         const expectedSig = crypto.createHmac("sha256", salt)
           .update(walletAddress)
           .digest("hex")
-          .slice(0, 8);
+          .slice(0, 6);
 
         if (signature === expectedSig) {
           console.log(`[Telegram] ✅ Signature verified for ${walletAddress}. Linking...`);
@@ -312,7 +312,7 @@ async function showMainMenu(ctx) {
 
 /**
  * Generate a deterministic stateless link code using HMAC.
- * 64 chars = 56 (address) + 8 (signature)
+ * 62 chars = 56 (address) + 6 (signature)
  */
 export function generateDeepLinkCode(walletAddress) {
     const cleanWallet = walletAddress.trim().toUpperCase();
@@ -321,7 +321,7 @@ export function generateDeepLinkCode(walletAddress) {
     const signature = crypto.createHmac("sha256", salt)
         .update(cleanWallet)
         .digest("hex")
-        .slice(0, 8);
+        .slice(0, 6);
         
     const code = `${cleanWallet}${signature}`;
     console.log(`[Telegram] Generated stateless code for ${cleanWallet.slice(0,8)}...: ${code}`);
