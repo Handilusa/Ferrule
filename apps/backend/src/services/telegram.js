@@ -216,6 +216,21 @@ export function initBot() {
         await ctx.answerCallbackQuery();
     });
 
+    // Persistent Commands Menu for Telegram UI
+    bot.api.setMyCommands([
+      { command: "start", description: "Open Ferrule Console" },
+      { command: "menu", description: "Show Action Menu" },
+    ]).catch(err => console.error("Could not set bot commands:", err));
+
+    // Allow /menu to also trigger the UI
+    bot.command("menu", async (ctx) => {
+      const walletAddress = users.get(ctx.from.id);
+      if (!walletAddress) {
+        return ctx.reply("👋 Welcome to Ferrule.\n\nTo link this Telegram account, go to the Ferrule Dashboard in the web app, open the Monitor tab, and generate a deep link.");
+      }
+      return showMainMenu(ctx);
+    });
+
     bot.start({
       onStart: (botInfo) => {
         console.log(`🤖 Telegram Bot started natively as @${botInfo.username}`);
