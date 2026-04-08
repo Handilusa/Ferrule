@@ -121,44 +121,6 @@ export async function initBot() {
       return showMainMenu(ctx);
     });
 
-    bot.callbackQuery("monitors_list", async (ctx) => {
-      const walletAddress = users.get(ctx.from.id);
-      if (!walletAddress) return ctx.reply("You are not linked to any account.");
-      
-      const userMonitors = await getMonitorsByUser(walletAddress);
-
-      if (!userMonitors.length) {
-        return ctx.reply("📡 You have no active monitors. Create one from the web app.");
-      }
-
-      for (const m of userMonitors) {
-        // Build simple progress bar
-        const perc = Math.min(100, Math.floor((m.spentUsdc / m.budgetUsdc) * 100));
-        const filled = Math.floor(perc / 10);
-        const bar = "█".repeat(filled) + "░".repeat(10 - filled);
-
-        const keyboard = new InlineKeyboard();
-        if (m.active) {
-            keyboard.text("⏸ Pause / Cancel", `cancel_${m.id}`);
-        }
-
-        const timeString = m.lastRun ? new Date(m.lastRun).toLocaleString() : "Pending";
-        
-        await ctx.reply(
-          `📡 *${m.pair} Monitor*\n` +
-          `Status: ${m.active ? "🟢 Active" : "🔴 Expired/Paused"}\n` +
-          `Budget: ${bar} \`${m.spentUsdc.toFixed(4)}/${m.budgetUsdc} USDC\`\n` +
-          `Last check: ${timeString}\n` +
-          `Signals sent: ${m.signalsCount}\n` +
-          `Interval: every ${m.intervalHours} hours\n`,
-          { parse_mode: "Markdown", reply_markup: m.active ? keyboard : undefined }
-        );
-      }
-      
-      // Acknowledge the callback query to remove loading state
-      await ctx.answerCallbackQuery();
-    });
-
 
     bot.callbackQuery("history_list", async (ctx) => {
       await ctx.answerCallbackQuery();
