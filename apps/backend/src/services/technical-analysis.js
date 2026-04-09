@@ -116,8 +116,8 @@ function computeOBV(closes, volumes) {
 
 function computeFibs(highs, lows) {
     if(highs.length === 0) return [];
-    const high = Math.max(...highs.slice(-200));
-    const low = Math.min(...lows.slice(-200));
+    const high = Math.max(...highs.slice(-100));
+    const low = Math.min(...lows.slice(-100));
     const fibStrs = [0.236, 0.382, 0.5, 0.618, 0.786];
     return fibStrs.map(f => low + (high - low) * f);
 }
@@ -181,29 +181,34 @@ function computeATR(highs, lows, closes, period) {
 
 export function buildMarketPrompt(pair, priceData, indicators, news) {
   const fibStr = indicators.fibs && indicators.fibs.length > 0 ? 
-                 `Fib 38.2%: $${indicators.fibs[1].toFixed(2)} | 61.8%: $${indicators.fibs[3].toFixed(2)}` : '';
+                 `*Fib 38.2%*: \`$${indicators.fibs[1].toFixed(4)}\` | *61.8%*: \`$${indicators.fibs[3].toFixed(4)}\`` : '';
 
   return `
 You are a senior quantitative analyst for perpetual derivatives. You are NOT evaluating providers.
 
-Pair: ${pair} | Price: $${priceData.current.price}
-RSI(14): ${indicators.rsi.toFixed(1)} (${rsiSignal(indicators.rsi)})
-EMA 9/21: ${indicators.ema9.toFixed(4)} / ${indicators.ema21.toFixed(4)} (${indicators.trend})
-MACD (12,26,9): Hist ${indicators.macd.hist.toFixed(2)} (${indicators.macd.label})
-OBV: ${indicators.obv.label}
-ADX(14): ${indicators.adx.value.toFixed(1)} (${indicators.adx.label})
-ATR(14): ${indicators.atr.toFixed(4)}
-Support: ${indicators.support.toFixed(4)} | Resistance: ${indicators.resistance.toFixed(4)}
-${fibStr}
+**📊 Market State:**
+*Pair:* **${pair}** | *Price:* **$${priceData.current.price}**
+
+**📉 Technical Indicators:**
+- *RSI(14):* ${indicators.rsi.toFixed(1)} (${rsiSignal(indicators.rsi)})
+- *EMA 9/21:* ${indicators.ema9.toFixed(4)} / ${indicators.ema21.toFixed(4)} (${indicators.trend})
+- *MACD:* Hist ${indicators.macd.hist.toFixed(4)} (${indicators.macd.label})
+- *OBV:* ${indicators.obv.label}
+- *ADX(14):* ${indicators.adx.value.toFixed(1)} (${indicators.adx.label})
+- *ATR(14):* ${indicators.atr.toFixed(4)}
+
+**🧱 Key Levels:**
+- *Support:* \`$${indicators.support.toFixed(4)}\` | *Resistance:* \`$${indicators.resistance.toFixed(4)}\`
+- ${fibStr}
 
 Si hay señales contradictorias entre indicadores, menciona explícitamente los indicadores que contradicen el bias y explica por qué los descuentas. Con ADX < 20, reduce la confianza máxima al 60%.
 
 Generate ONLY this in Telegram Markdown:
-1. 🎯 Directional Bias (LONG/SHORT/NEUTRAL) with % confidence
-2. 📍 Optimal Entry (specific price)
-3. 🛑 Stop Loss (based on ATR x1.5)
-4. 🎯 Take Profit R/R 1:2 and 1:3
-5. 💡 Key Confluences
+1. 🎯 **Directional Bias** (LONG/SHORT/NEUTRAL) with % confidence
+2. 📍 **Optimal Entry** (specific price)
+3. 🛑 **Stop Loss** (based on ATR x1.5)
+4. 🎯 **Take Profit** R/R 1:2 and 1:3
+5. 💡 **Key Confluences** (brief evaluation in italics)
   `.trim();
 }
 
