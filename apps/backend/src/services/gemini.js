@@ -193,8 +193,8 @@ If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, an
         const mockReport = `## Executive Summary
 (Fallback Mode) The LLM provider (Google Gemini) rejected the request.
 
-## Diagnóstico del Error
-El servidor de Gemini arrojó exactamente este error:
+## Error Diagnosis
+The Gemini server threw exactly this error:
 \`${error.message}\`
 
 ## Key Findings
@@ -202,7 +202,7 @@ El servidor de Gemini arrojó exactamente este error:
 - The issue is entirely isolated to the API Provider connection or parameters.
 
 ## Recommended Next Investigations
-Ajusta la API Key, el modelo, o lee el error de arriba para parchearlo.`;
+Check the API Key, the model limits, or read the error above to patch it.`;
         
         for (let i = 1; i <= 4; i++) {
           await new Promise(r => setTimeout(r, 200));
@@ -250,7 +250,7 @@ export async function fastChatResponse(prompt, systemPrompt) {
       return `⚠️ API Provider Error: ${err.message}`;
     }
   }
-  return `⚠️ **Saturación Temporal del Proveedor de IA**\nNo pudimos procesar la solicitud porque los servidores de inteligencia artificial (Gemini) están temporalmente saturados o sin cuota disponible. \n\n*Por favor, intente de nuevo en unos momentos.*`;
+  return `⚠️ **AI Provider Temporary Saturation**\nWe couldn't process the request because the artificial intelligence servers (Gemini) are temporarily saturated or out of available quota. \n\n*Please try again in a few moments.*`;
 }
 
 /**
