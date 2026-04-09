@@ -94,7 +94,7 @@ sequenceDiagram
     StellarTestnet-->>x402Gateway: txHash confirmed
     x402Gateway->>Gemini: buildMarketPrompt()
     Gemini-->>TelegramBot: markdown report
-    TelegramBot-->>User: ⚡ informe + 🔗 txHash
+    TelegramBot-->>User: ⚡ report + 🔗 txHash
 ```
 
 #### Live Telegram Output
@@ -267,4 +267,4 @@ These features are designed and ready to integrate as natural extensions of the 
 | **Cross-Chain Agent Discovery** | Extend Agent Registry to support agents on other chains (Monad, Ethereum L2s) while keeping settlement on Stellar. | Exploratory |
 
 ---
-*Built for the Stellar Hacks: Agents en DoraHacks. Empowering autonomous institutional commerce.*
+*Built for Stellar Hacks: Agents on DoraHacks. Empowering autonomous institutional commerce.*
