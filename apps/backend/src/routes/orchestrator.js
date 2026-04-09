@@ -947,6 +947,7 @@ router.get("/verify/:hash", (req, res) => {
     sessionId: foundSession.id,
     query: foundSession.query,
     report: foundSession.report,
+    reportHash: foundSession.reportHash,
     funderPublicKey: foundSession.funderPublicKey,
     timestamp: foundSession.timestamp,
     anchorHash: anchorTx ? anchorTx.txId : null,

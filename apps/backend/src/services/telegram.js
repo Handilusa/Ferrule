@@ -171,10 +171,10 @@ export async function initBot() {
         
         const queryClean = reportRaw.query ? reportRaw.query.split(" ").slice(0, 3).join(" ").toUpperCase() : "RESEARCH";
         
-        // Fallback to the dashboard URL if no anchor hash is present yet
+        // Link directly to the Ferrule frontend verifier instead of Stellar Expert
         const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
-        const anchorLink = reportRaw.anchorHash 
-            ? `https://stellar.expert/explorer/testnet/tx/${reportRaw.anchorHash}`
+        const visualLink = reportRaw.reportHash 
+            ? `${FRONTEND_URL}/verify/${reportRaw.reportHash}`
             : `${FRONTEND_URL}/console?tab=history`;
 
         await ctx.reply(
@@ -182,7 +182,7 @@ export async function initBot() {
           `📅 ${new Date(reportRaw.timestamp).toUTCString()}\n` +
           `💲 Coste Total: \`${reportRaw.costUSDC} USDC\`\n\n` +
           `🔗 *Informe completo verificado:*\n` +
-          `${anchorLink}\n\n` +
+          `${visualLink}\n\n` +
           `🔐 *SHA-256:*\n\`${txHash}...\``,
           { parse_mode: "Markdown", disable_web_page_preview: true }
         );
