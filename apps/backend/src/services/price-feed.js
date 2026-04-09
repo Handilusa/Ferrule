@@ -10,17 +10,17 @@ export async function getPriceData(pair) {
   }
 
   const [base, quote] = pair.split("/"); // e.g. "XLM/USDC"
-  const binanceSymbol = `${base.toUpperCase()}USDT`;
+  const kucoinSymbol = `${base.toUpperCase()}-USDT`;
 
   let cgData = null;
   let ohlcv = [];
   
   try {
-    cgData = await fetchBinanceTicker(binanceSymbol);
-    ohlcv = await fetchBinanceOHLCV(binanceSymbol, "1h", 48); // 48 hours
+    cgData = await fetchKucoinTicker(kucoinSymbol);
+    ohlcv = await fetchKucoinOHLCV(kucoinSymbol, "1hour"); // 48 hours is default? Wait, I will need to handle how many items
   } catch (err) {
-    console.error("Binance Fetch Error:", err.message);
-    // Fallback stub if Binance fails
+    console.error("KuCoin Fetch Error:", err.message);
+    // Fallback stub if KuCoin fails
     cgData = { price: 0, change24h: 0, volume24h: 0, high24h: 0, low24h: 0, marketCap: 0 };
   }
   
@@ -33,48 +33,61 @@ export async function getPriceData(pair) {
   return data;
 }
 
-async function fetchBinanceTicker(symbol) {
+async function fetchKucoinTicker(symbol) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`, { signal: controller.signal });
+    const res = await fetch(`https://api.kucoin.com/api/v1/market/stats?symbol=${symbol}`, { signal: controller.signal });
     clearTimeout(timeout);
     
-    if (!res.ok) throw new Error("Binance Request failed");
+    if (!res.ok) throw new Error("KuCoin Request failed");
     const d = await res.json();
     return {
-      price: parseFloat(d.lastPrice),
-      change24h: parseFloat(d.priceChangePercent),
-      volume24h: parseFloat(d.quoteVolume),
-      high24h: parseFloat(d.highPrice),
-      low24h: parseFloat(d.lowPrice),
+      price: parseFloat(d.data.last),
+      change24h: parseFloat(d.data.changeRate) * 100, // KuCoin gives 0.0141, we need 1.41
+      volume24h: parseFloat(d.data.volValue),
+      high24h: parseFloat(d.data.high),
+      low24h: parseFloat(d.data.low),
       marketCap: 0 // Not available in ticker endpoint, but unused in our risk models
     };
   } catch (err) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') throw new Error('Binance timeout — please try again');
+    if (err.name === 'AbortError') throw new Error('KuCoin timeout — please try again');
     throw err;
   }
 }
 
-async function fetchBinanceOHLCV(symbol, interval, limit) {
+async function fetchKucoinOHLCV(symbol, type) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`, { signal: controller.signal });
+    const res = await fetch(`https://api.kucoin.com/api/v1/market/candles?type=${type}&symbol=${symbol}`, { signal: controller.signal });
     clearTimeout(timeout);
     
-    if (!res.ok) throw new Error("Binance OHLCV Request failed");
+    if (!res.ok) throw new Error("KuCoin OHLCV Request failed");
     const data = await res.json();
     
-    // Binance format: [Open time, Open, High, Low, Close, Volume, ...]
-    // Our format: [[timestamp, open, high, low, close], ...]
-    return data.map(k => [k[0], parseFloat(k[1]), parseFloat(k[2]), parseFloat(k[3]), parseFloat(k[4])]);
+    // KuCoin format: [time, open, close, high, low, amount, volume]
+    // Time is in seconds string, descending order.
+    // Our format: [[timestampMs, open, high, low, close], ...]
+    if (!data.data) return [];
+    
+    const mapped = data.data.map(k => [
+      parseInt(k[0]) * 1000, 
+      parseFloat(k[1]), // open
+      parseFloat(k[3]), // high
+      parseFloat(k[4]), // low
+      parseFloat(k[2])  // close
+    ]);
+    
+    // Reverse because KuCoin gives newest at index 0, we need newest at the end
+    // Slice to 48 hours for indicator computation stability
+    return mapped.slice(0, 48).reverse();
   } catch (err) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') throw new Error('Binance timeout — please try again');
+    if (err.name === 'AbortError') throw new Error('KuCoin timeout — please try again');
     throw err;
   }
 }

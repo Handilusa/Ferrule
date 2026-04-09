@@ -307,7 +307,7 @@ export async function initBot() {
  */
 export function getWebhookHandler() {
   if (!bot) return (_req, res) => res.status(503).json({ error: "Bot not initialized" });
-  return webhookCallback(bot, "express");
+  return webhookCallback(bot, "express", "return", 60_000);
 }
 
 async function showMainMenu(ctx) {
