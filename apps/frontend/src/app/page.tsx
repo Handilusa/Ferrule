@@ -109,6 +109,15 @@ export default function Home() {
     });
   }, { scope: rootRef });
 
+  useGSAP(() => {
+    if (redirectUrl) {
+      gsap.to("#redirect-modal-bg", { autoAlpha: 1, duration: 0.3, ease: "power2.out" });
+      gsap.fromTo("#redirect-modal-card", { y: 20, scale: 0.95 }, { y: 0, scale: 1, duration: 0.4, ease: "back.out(1.5)" });
+    } else {
+      gsap.to("#redirect-modal-bg", { autoAlpha: 0, duration: 0.2, ease: "power2.in" });
+    }
+  }, { dependencies: [redirectUrl], scope: rootRef });
+
   return (
     <div ref={rootRef} className="min-h-screen bg-black text-white overflow-x-hidden pt-20">
       {/* ═══════════════ NAVBAR ═══════════════ */}
@@ -383,7 +392,7 @@ export default function Home() {
               protocol: "x402",
               price: "0.0001 USDC",
               desc: "Due diligence web search — SaaS, security, compliance",
-              icon: "🔍",
+              icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-zinc-400 group-hover:text-blue-400 transition-colors"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
               successRate: 94,
               totalMissions: 37,
             },
@@ -392,7 +401,7 @@ export default function Home() {
               protocol: "MPP",
               price: "0.00001 USDC",
               desc: "Token streamer — Architecture parsing & synthesis",
-              icon: "🧠",
+              icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-zinc-400 group-hover:text-purple-400 transition-colors"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
               successRate: 98,
               totalMissions: 41,
             },
@@ -401,7 +410,7 @@ export default function Home() {
               protocol: "x402",
               price: "0.005 USDC",
               desc: "Adversarial risk evaluator & agent coordinator",
-              icon: "🛡️",
+              icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-zinc-400 group-hover:text-amber-400 transition-colors"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>,
               successRate: 89,
               totalMissions: 29,
             },
@@ -577,37 +586,38 @@ curl https://your-ferrule-instance/api/search?q=datadog+SOC2
         </div>
       </footer>
 
-      {/* Redirect Pop-up Modal */}
-      {redirectUrl && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-            <h3 className="text-lg font-medium text-white mb-2">Leaving Ferrule</h3>
-            <p className="text-sm text-zinc-400 mb-6 font-light">
-              You are about to securely leave this page and navigate to an external site. Do you want to continue?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="border-zinc-800 bg-transparent text-zinc-300 hover:bg-zinc-900 hover:text-white"
-                onClick={() => setRedirectUrl(null)}
-              >
-                Cancel
-              </Button>
-              <Button 
-                size="sm"
-                className="bg-white text-black hover:bg-zinc-200 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                onClick={() => {
-                  window.open(redirectUrl, "_blank");
-                  setRedirectUrl(null);
-                }}
-              >
-                Continue <span className="font-mono text-zinc-500 ml-2 border-l border-zinc-300 pl-2">↗</span>
-              </Button>
-            </div>
+      {/* Redirect Pop-up Modal (Always mounted for GSAP) */}
+      <div 
+        id="redirect-modal-bg"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4 opacity-0 invisible"
+      >
+        <div id="redirect-modal-card" className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+          <h3 className="text-lg font-medium text-white mb-2">Leaving Ferrule</h3>
+          <p className="text-sm text-zinc-400 mb-6 font-light">
+            You are about to securely leave this page and navigate to an external site. Do you want to continue?
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="border-zinc-800 bg-transparent text-zinc-300 hover:bg-zinc-900 hover:text-white"
+              onClick={() => setRedirectUrl(null)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              size="sm"
+              className="bg-white text-black hover:bg-zinc-200 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+              onClick={() => {
+                if(redirectUrl) window.open(redirectUrl, "_blank");
+                setRedirectUrl(null);
+              }}
+            >
+              Continue <span className="font-mono text-zinc-500 ml-2 border-l border-zinc-300 pl-2">↗</span>
+            </Button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
