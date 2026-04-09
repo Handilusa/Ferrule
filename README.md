@@ -1,3 +1,6 @@
+![Network](https://img.shields.io/badge/Stellar-Testnet-blue?logo=stellar&logoColor=white)
+[![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+
 # Ferrule — Due Diligence Desk for SaaS B2B
 
 > **Autonomous Tech & Risk Evaluation. Paid per report via x402/MPP. Anchored on Stellar.**
@@ -82,6 +85,42 @@ sequenceDiagram
     TelegramBot-->>User: ⚡ informe + 🔗 txHash
 ```
 
+#### Live Telegram Output
+```text
+📊 Ferrule Market — XLM/USDC
+📅 Thu, 09 Apr 2026 22:00:44 GMT
+
+💲 Price: $0.1565 | -1.51% 24h
+
+📈 INDICATORS
+• RSI (14): 55.7 ⚪ neutral
+• EMA 9/21: $0.1558 / $0.1560 (📉 bearish)
+• MACD: Hist 0.00 (📈 bullish momentum accelerating)
+• OBV: ⚠️ bearish volume divergence
+• ADX (14): 32.3 (💪 strong trend)
+• ATR (14): $0.0014 → volatility 0.91%
+• Support: $0.1526
+• Resistance: $0.1575
+• Fibs 38.2%: $0.16 | 61.8%: $0.16
+
+💡 AI ANALYSIS: 
+🎯 Directional Bias: SHORT 85% confidence
+📍 Optimal Entry: $0.1570
+🛑 Stop Loss: $0.1591
+🎯 Take Profit:
+    *   R/R 1:2: $0.1528
+    *   R/R 1:3: $0.1507
+💡 Key Confluences:
+*   *Price at strong resistance ($0.1575) which also coincides with the Fib 38.2% level.*
+*   *Clear bearish EMA 9/21 crossover, indicating short-term downside pressure.*
+*   *Strong bearish volume divergence (OBV), suggesting smart money distribution despite current price action, outweighing any short-term bullish momentum indicated by MACD.*
+*   *ADX(14) at 32.3, confirming a strong trend is in play.*
+
+*Contradictory Signals Discounted:*
+*   *MACD Histogram (0.0005, bullish momentum accelerating):* This signal is discounted. While indicating accelerating momentum, MACD is a lagging indicator. The more immediate and critical signals are the bearish EMA crossover and, more importantly, the strong bearish OBV divergence, which suggests underlying selling pressure despite minor price upticks. This MACD acceleration could represent a minor bounce within a broader bearish structure or a 'dead cat bounce' against strong resistance.
+*   *RSI(14) (55.7, neutral):* This signal is considered secondary. While slightly above neutral, it lacks conviction for a strong bullish move. The robust bearish OBV divergence and price action at resistance provide a much stronger counter-narrative, indicating that any perceived strength is likely unsustainable or artificial.
+```
+
 ---
 
 ## 🛡️ AP2 Risk Mandates (On-Chain Policy Enforcement)
@@ -96,7 +135,7 @@ Ferrule implements **AP2-style mandates** on Stellar — the user defines spendi
 The user controls mandates through abstract checkboxes in the Mission UI (e.g., "Official Docs", "GitHub", "Security DBs"), which internally map to real domain patterns written to Soroban as CSV strings.
 
 **Contract:** `contracts/risk-mandates/src/lib.rs`  
-**Verified Build Hash:** `3ca8360df3d87e1bd00defb076f81590ed96904e8fe0d53712345055bad0c0c2`
+**Verified Build Hash:** [`3ca8360df3d87e1bd00defb076f81590ed96904e8fe0d53712345055bad0c0c2`](https://stellar.expert/explorer/testnet/contract/CAN7Z2DSHSKHH54QMX33SKSRURHVNSKDE62ANSBH55WH43MEJ5BRO3IC)
 
 ---
 
@@ -113,7 +152,7 @@ The Orchestrator calls `record_mission(agent_id, success)` as a **real Soroban T
 This creates a **trustless, on-chain reputation layer** for autonomous agents — something not currently implemented in any Soroban project for this use case.
 
 **Contract:** `contracts/agent-registry/src/lib.rs`  
-**Verified Build Hash:** `d891bd511d46ea04ef0b1218ef70095a19c5b3c2b6147c421bef765f33c76bba`
+**Verified Build Hash:** [`d891bd511d46ea04ef0b1218ef70095a19c5b3c2b6147c421bef765f33c76bba`](https://stellar.expert/explorer/testnet/contract/CBFO7Y74GBX5C5CVBVGXAX5LG4GSVK44OSKZNOZCMOTZXKA7WGROYLH2)
 
 ---
 
@@ -130,7 +169,7 @@ Ferrule demonstrates the absolute necessity of a high-speed, low-cost network li
 
 ---
 
-## 📝 Submission Details & Technical Disclosures (Hackathon Rules)
+## 📋 Technical Implementation Notes
 
 For complete transparency regarding the current state of the prototype, please note the following implementation details, API usage, and fallback mechanisms:
 
