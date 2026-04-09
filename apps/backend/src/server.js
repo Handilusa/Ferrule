@@ -46,6 +46,8 @@ app.get("/", (_req, res) => {
   });
 });
 
+app.get('/health', (_, res) => res.json({ ok: true, ts: Date.now() }));
+
 // --- Agent routers ---
 app.use("/api/orchestrate", orchestratorRouter);
 app.use("/api/llm", llmAgentRouter);
@@ -55,8 +57,12 @@ app.use("/api/registry", registryRouter);
 app.use("/api/faucet", faucetRouter);
 app.use("/api/monitor", monitorRouter);
 
-// --- Telegram Webhook (must be registered AFTER bot init) ---
-// This is set up lazily after initBot() runs in the listen callback
+// --- Telegram Webhook (Registered immediately to not block startup) ---
+// getWebhookHandler gracefully handles requests if bot is null during init
+app.post("/api/telegram/webhook", (req, res, next) => {
+  const handler = getWebhookHandler();
+  return handler(req, res, next);
+});
 
 // --- WebSocket for real-time payment events ---
 const wss = setupWebSocket(server);
@@ -64,6 +70,26 @@ const wss = setupWebSocket(server);
 // Make wss available to routers
 app.set("wss", wss);
 app.set("broadcast", broadcast);
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function initBotWithRetry(attempts = 5, delay = 5000) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const success = await initBot();
+      if (success) {
+        console.log('✅ Bot inicializado correctamente en background');
+        return;
+      }
+      throw new Error("initBot devolvió false");
+    } catch (err) {
+      console.log(`⚠️ Bot init fallido (intento ${i+1}/${attempts}), reintentando en ${delay/1000}s...`);
+      await sleep(delay);
+      delay *= 2; // backoff exponencial
+    }
+  }
+  console.error('❌ Bot no pudo inicializarse tras todos los intentos');
+}
 
 // --- Start ---
 server.listen(PORT, async () => {
@@ -75,15 +101,9 @@ server.listen(PORT, async () => {
 ╚═══════════════════════════════════════════════════╝
   `);
 
-  // Start cron & telegram bot
+  // Initializaciones no bloqueantes
   startMonitorCron();
-  await initBot();
-
-  // Register the Telegram webhook handler after bot is initialized
-  app.post("/api/telegram/webhook", (req, res, next) => {
-    const handler = getWebhookHandler();
-    return handler(req, res, next);
-  });
+  initBotWithRetry();
 
   // Auto-register agents in Soroban background
   if (process.env.REGISTRY_CONTRACT_ID) {
