@@ -169,23 +169,25 @@ export async function initBot() {
         if (!res.ok) throw new Error("Report not found");
         const reportRaw = await res.json();
         
-        const report = reportRaw.report || "";
-        const riskMatch = report.match(/([0-9]{1,3}\/100)/);
-        const riskScoreStr = riskMatch ? riskMatch[1] : "N/A";
+        const queryClean = reportRaw.query ? reportRaw.query.split(" ").slice(0, 3).join(" ").toUpperCase() : "RESEARCH";
         
-        const cleanSummary = report.slice(0, 300).replace(/#/g, "").trim();
+        // Fallback to the dashboard URL if no anchor hash is present yet
+        const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
+        const anchorLink = reportRaw.anchorHash 
+            ? `https://stellar.expert/explorer/testnet/tx/${reportRaw.anchorHash}`
+            : `${FRONTEND_URL}/console?tab=history`;
 
         await ctx.reply(
-          `📋 *Recovered Report*\n` +
-          `🗓 ${new Date(reportRaw.timestamp).toLocaleString()}\n` +
-          `🔐 Saved HASH: \`${txHash.slice(0, 24)}...\`\n` +
-          `✅ Verified on-chain: ${reportRaw.anchorHash ? "Yes" : "No"}\n\n` +
-          `*Summary:* ${cleanSummary}...\n\n` +
-          `🔗 [Verify on-chain](https://stellar.expert/explorer/testnet/tx/${reportRaw.anchorHash})`,
-          { parse_mode: "Markdown" }
+          `📋 *HISTORIAL — ${queryClean}*\n` +
+          `📅 ${new Date(reportRaw.timestamp).toUTCString()}\n` +
+          `💲 Coste Total: \`${reportRaw.costUSDC} USDC\`\n\n` +
+          `🔗 *Informe completo verificado:*\n` +
+          `${anchorLink}\n\n` +
+          `🔐 *SHA-256:*\n\`${txHash}...\``,
+          { parse_mode: "Markdown", disable_web_page_preview: true }
         );
       } catch (err) {
-         await ctx.reply("❌ Could not locate that report in current memory.");
+         await ctx.reply("❌ The requested report is no longer in active memory or could not be verified.");
       }
     });
 
