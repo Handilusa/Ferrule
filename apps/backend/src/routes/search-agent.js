@@ -102,6 +102,18 @@ async function x402Gate(req, res, next) {
 // Apply x402 gate to all routes
 router.use(x402Gate);
 
+function normalizeQuery(query) {
+  // Detecta tickers cripto ($BTC, $OFC, $XLM...) para evitar resultados equivocados
+  const tickerMatch = query.match(/\$([A-Z]{2,10})/g);
+  
+  if (tickerMatch) {
+    const ticker = tickerMatch[0]; // "$OFC"
+    // Fuerza contexto cripto en la query
+    return query.replace(ticker, `${ticker} crypto token cryptocurrency`);
+  }
+  return query;
+}
+
 /**
  * POST /api/search
  * Body: { query: string, maxResults?: number }
@@ -113,11 +125,13 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "query is required" });
   }
 
+  const normalizedQuery = normalizeQuery(query);
+
   try {
     const wss = req.app.get("wss");
     const { broadcast } = await import("../websocket.js");
 
-    const results = await searchWeb(query, maxResults || 5, allowedDomains);
+    const results = await searchWeb(normalizedQuery, maxResults || 5, allowedDomains);
 
     // Emit x402 payment event
     if (wss) {
