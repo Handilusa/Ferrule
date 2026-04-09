@@ -433,10 +433,10 @@ async function marketReportConversation(conversation, ctx) {
       `• Resistance: $${indicators.resistance.toFixed(4)}\n\n` +
       `💡 *AI ANALYSIS*: \n${analysis.fullRiskReport}`;
        
-       await ctx.api.editMessageText(ctx.chat.id, msg.message_id, finalMsg, { parse_mode: "Markdown" });
+       await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "Markdown" });
      } catch (err) {
        console.error('[Snapshot] ERROR:', err.message);
-       await ctx.api.editMessageText(ctx.chat.id, msg.message_id, `❌ Failed to generate snapshot: ${err.message}`);
+       await ctx.api.editMessageText(msg.chat.id, msg.message_id, `❌ Failed to generate snapshot (or timeout): ${err.message}`);
      }
   } else {
      const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";

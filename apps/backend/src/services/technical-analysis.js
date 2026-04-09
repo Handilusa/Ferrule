@@ -1,6 +1,6 @@
 export function computeIndicators(ohlcv) {
   if (!ohlcv || ohlcv.length === 0) {
-      return { rsi: 50, ema9: 0, ema21: 0, support: 0, resistance: 0, trend: "neutral", volumeSpike: false };
+      return { rsi: 50, ema9: 0, ema21: 0, atr: 0, support: 0, resistance: 0, trend: "neutral", volumeSpike: false };
   }
 
   const closes = ohlcv.map(c => c[4]);

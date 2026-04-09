@@ -161,10 +161,18 @@ Ajusta la API Key, el modelo, o lee el error de arriba para parchearlo.`;
 export async function fastChatResponse(prompt, systemPrompt) {
   try {
     const llm = getModel();
-    const result = await llm.generateContent({
+    
+    // timeout wrapper for gemini API (which otherwise hangs indefinitely on dropped packets)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Gemini API timeout — request took longer than 15s")), 15000)
+    );
+    
+    const requestPromise = llm.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       systemInstruction: systemPrompt,
     });
+
+    const result = await Promise.race([requestPromise, timeoutPromise]);
     return result.response.text();
   } catch (err) {
     console.error("[Gemini] Error in fast chat:", err.message);
