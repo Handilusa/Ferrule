@@ -13,6 +13,11 @@ Instead of generic LLM web-searches that hallucinate facts or suffer from confir
 
 Every agent action is cryptographically paid for using Stellar micropayments (`x402`), and the final report is immutably anchored on-chain using `manageData` for guaranteed verifiability.
 
+### 🔗 Hackathon Quick Links
+- **Creator (X/Twitter):** [@Cebohia18](https://x.com/Cebohia18)
+- **GitHub Repository:** [Handilusa/Ferrule](https://github.com/Handilusa/Ferrule)
+- **Live Telegram Bot:** [@Ferrule_monitor_bot](https://t.me/Ferrule_monitor_bot)
+
 ---
 
 ## 🏆 The "Why Not ChatGPT?" Factor
@@ -70,7 +75,7 @@ sequenceDiagram
 ### 2. Quantitative Market Monitor (Perpetual Telegram Agent)
 Ferrule features a fully autonomous quantitative agent accessible via Telegram. The Telegram module uses stateless, timestamped **HMAC SHA-256 verification** to link Web Console wallets to Telegram IDs without requiring a centralized SQL database.
 
-The user can ask the bot to analyze tokens (e.g., "$XLM") or manage perpetual monitors. It natively detects `$TICKER` mentions and parses Native XLM/USDC token pools.
+The user can ask the bot to analyze tokens on-demand (e.g., "$XLM") or manage perpetual background monitors. Through the Ferrule Web Console, users can configure **custom cron-style intervals** (e.g., every 1h, 4h, 24h) and assign a dynamic USDC budget. The Orchestrator will autonomously wake up, run the quantitative market analysis, and push the report directly to the linked Telegram chat if action is required.
 ```mermaid
 sequenceDiagram
     User->>TelegramBot: /snapshot XLM/USDC (or detects $XLM)
