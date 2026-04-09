@@ -418,7 +418,25 @@ Return ONLY the JSON object.`;
       });
     }
 
-    let searchContext = allSearchResults
+    // Filter irrelevant sources
+    const cleanSubj = query.replace(/evaluate /i, '').replace(/ due diligence/i, '').trim().toLowerCase();
+    const tickerMatch = query.match(/\$([a-zA-Z]{2,10})/);
+    const ticker = tickerMatch ? tickerMatch[0].toLowerCase() : null;
+    const rawTicker = tickerMatch ? tickerMatch[1].toLowerCase() : null;
+    
+    let relevantResults = allSearchResults.filter(s => {
+      const content = (s.title + " " + s.snippet).toLowerCase();
+      if (ticker) {
+        return content.includes(ticker) || content.includes(rawTicker);
+      }
+      return cleanSubj.split(" ").some(word => word.length > 3 && content.includes(word));
+    });
+
+    if (relevantResults.length === 0 && allSearchResults.length > 0) {
+      relevantResults = allSearchResults; // Fallback
+    }
+
+    let searchContext = relevantResults
       .map((r, i) => `[${i + 1}] ${r.title}\n    URL: ${r.url}\n    ${r.snippet}`)
       .join("\n\n");
       
@@ -427,7 +445,7 @@ Return ONLY the JSON object.`;
     }
 
     // Build rich mandate enforcement summary for LLM injection
-    const executedDomains = [...new Set(allSearchResults.map(r => { try { return new URL(r.url).hostname; } catch { return r.url; } }))];
+    const executedDomains = [...new Set(relevantResults.map(r => { try { return new URL(r.url).hostname; } catch { return r.url; } }))];
     const spentUSDC = session.totalSpentUSDC.toFixed(4);
     const remainingUSDC = (session.activeMandate.maxBudget - session.totalSpentUSDC).toFixed(4);
     const whitelistStr = session.activeMandate.allowedDomains.length > 0 
@@ -443,6 +461,7 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
 ✓ ${session.searchQueries} x402 searches executed (${executedDomains.join(", ") || "none"})
 ✓ ${session.mandateBlocks} payments blocked ${session.mandateBlocks > 0 ? "(source domains outside AP2 whitelist)" : "(all sources matched whitelist)"}
 ✓ Domain whitelist: ${whitelistStr}
+3. No expliques qué es SOC2, ISO27001 o auditorías de contratos. Busca si el objetivo TIENE o NO TIENE auditoría. Si no hay datos, di "No encontrada" en una línea. Da prioridad a noticias en tiempo real, precios y TGEs recientes si aplican.
 ---`;
     
     searchContext += "\n" + systemDirectives;
@@ -854,6 +873,15 @@ function generateDueDiligenceQueries(originalQuery) {
   
   if (words > 6 || clean.toLowerCase().includes("hola") || clean.toLowerCase().includes("hello")) {
     return [clean];
+  }
+  
+  const isCrypto = /\$[A-Z]{2,10}/i.test(clean) || clean.toLowerCase().includes("token") || clean.toLowerCase().includes("coin");
+  if (isCrypto) {
+    return [
+      `${clean} smart contract audit Certik Hacken security`,
+      `${clean} tokenomics TGE FDV market cap supply`,
+      `${clean} current target market price okx binance listings`,
+    ];
   }
   
   return [
