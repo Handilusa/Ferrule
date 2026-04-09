@@ -1,38 +1,74 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
-let genAI = null;
-let model = null;
+// ─── Multi-Key Pool with Automatic Failover ────────────────────────────────
+// Supports: GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ...
+// On 429/quota errors, rotates to the next key automatically.
+const SAFETY_SETTINGS = [
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+];
+
+const MODEL_NAME = "gemini-2.5-flash";
+
+// Pool state
+let apiKeys = [];
+let models = [];       // cached model per key
+let currentKeyIndex = 0;
+let poolInitialized = false;
+
+function initPool() {
+  if (poolInitialized) return;
+
+  // Collect all keys: GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ...
+  const primary = process.env.GEMINI_API_KEY;
+  if (primary) apiKeys.push(primary);
+
+  for (let i = 2; i <= 10; i++) {
+    const key = process.env[`GEMINI_API_KEY_${i}`];
+    if (key) apiKeys.push(key);
+  }
+
+  if (apiKeys.length === 0) {
+    throw new Error("No GEMINI_API_KEY found. Set GEMINI_API_KEY (and optionally GEMINI_API_KEY_2, _3...) in env.");
+  }
+
+  // Pre-build a model instance per key
+  models = apiKeys.map((key, idx) => {
+    const genAI = new GoogleGenerativeAI(key);
+    console.log(`[Gemini Pool] Key #${idx + 1} loaded (${key.slice(0, 6)}...${key.slice(-4)})`);
+    return genAI.getGenerativeModel({ model: MODEL_NAME, safetySettings: SAFETY_SETTINGS });
+  });
+
+  console.log(`[Gemini Pool] ${apiKeys.length} key(s) in rotation pool.`);
+  poolInitialized = true;
+}
 
 function getModel() {
-  if (!model) {
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not set. Get one at https://aistudio.google.com/");
-    }
-    genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_NONE,
-        }
-      ]
-    });
-  }
-  return model;
+  initPool();
+  return models[currentKeyIndex];
+}
+
+/**
+ * Rotate to the next API key in the pool. Returns true if there's a fresh key to try.
+ */
+function rotateKey(reason = "") {
+  const exhaustedIdx = currentKeyIndex;
+  currentKeyIndex = (currentKeyIndex + 1) % models.length;
+  const label = `Key #${exhaustedIdx + 1} → Key #${currentKeyIndex + 1}`;
+  console.warn(`[Gemini Pool] Rotating ${label}. Reason: ${reason}`);
+  // Return false if we wrapped all the way around (all keys exhausted)
+  return currentKeyIndex !== exhaustedIdx;
+}
+
+/**
+ * Detect if an error is a quota/rate-limit error worth rotating for.
+ */
+function isQuotaError(err) {
+  const msg = (err.message || "").toLowerCase();
+  return msg.includes("429") || msg.includes("quota") || msg.includes("resource") ||
+         msg.includes("rate") || msg.includes("exhausted") || msg.includes("limit");
 }
 
 /**
@@ -142,10 +178,16 @@ If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, an
     } catch (error) {
       console.error(`[Gemini API] Attempt ${attempts}/${maxRetries} failed:`, error.message);
       
+      // If quota error, rotate to backup key immediately
+      if (isQuotaError(error) && models.length > 1) {
+        rotateKey(error.message);
+        // Don't count quota rotations against retry limit
+        attempts--;
+      }
+      
       if (attempts >= maxRetries) {
-        console.warn("[Gemini API] Exceeded max retries. Engaging bypass fallback so the mission doesn't crash.");
+        console.warn("[Gemini API] Exceeded max retries across all keys. Engaging bypass fallback.");
         
-        // Mock response to cleanly finish the Soroban payments pipeline
         const mockReport = `## Executive Summary
 (Fallback Mode) The LLM provider (Google Gemini) rejected the request.
 
@@ -160,7 +202,6 @@ El servidor de Gemini arrojó exactamente este error:
 ## Recommended Next Investigations
 Ajusta la API Key, el modelo, o lee el error de arriba para parchearlo.`;
         
-        // Simulate a 4-batch streaming process (4 micropayments)
         for (let i = 1; i <= 4; i++) {
           await new Promise(r => setTimeout(r, 200));
           if (onBatch) onBatch(50 * i, mockReport.substring(0, i * 50), 50 * i, i);
@@ -169,7 +210,6 @@ Ajusta la API Key, el modelo, o lee el error de arriba para parchearlo.`;
         return { fullText: mockReport, totalTokens: 200, batchCount: 4 };
       }
       
-      // Wait 2 seconds before retrying
       await new Promise(r => setTimeout(r, 2000));
     }
   }
@@ -177,27 +217,38 @@ Ajusta la API Key, el modelo, o lee el error de arriba para parchearlo.`;
 
 /**
  * Fast LLM response for single-turn chat or mode routing (non-streaming).
+ * Supports key rotation on quota errors.
  */
 export async function fastChatResponse(prompt, systemPrompt) {
-  try {
-    const llm = getModel();
-    
-    // timeout wrapper for gemini API (which otherwise hangs indefinitely on dropped packets)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Gemini API timeout — request took longer than 15s")), 15000)
-    );
-    
-    const requestPromise = llm.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      systemInstruction: systemPrompt,
-    });
+  const maxAttempts = models.length > 1 ? models.length + 1 : 2;
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const llm = getModel();
+      
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Gemini API timeout — request took longer than 15s")), 15000)
+      );
+      
+      const requestPromise = llm.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        systemInstruction: systemPrompt,
+      });
 
-    const result = await Promise.race([requestPromise, timeoutPromise]);
-    return result.response.text();
-  } catch (err) {
-    console.error("[Gemini] Error in fast chat:", err.message);
-    return `⚠️ API Provider Error: ${err.message}`;
+      const result = await Promise.race([requestPromise, timeoutPromise]);
+      return result.response.text();
+    } catch (err) {
+      console.error(`[Gemini] Fast chat attempt ${attempt + 1}/${maxAttempts} error:`, err.message);
+      
+      if (isQuotaError(err) && models.length > 1) {
+        rotateKey(err.message);
+        continue; // Retry immediately with new key
+      }
+      
+      return `⚠️ API Provider Error: ${err.message}`;
+    }
   }
+  return `⚠️ All ${apiKeys.length} API keys exhausted.`;
 }
 
 /**
@@ -304,6 +355,12 @@ Return ONLY valid JSON.`;
 
     } catch (error) {
       console.error(`[Risk Agent] Attempt ${attempts}/${maxRetries} error:`, error.message);
+      
+      if (isQuotaError(error) && models.length > 1) {
+        rotateKey(error.message);
+        attempts--; // Don't burn a retry on key rotation
+      }
+      
       if (attempts >= maxRetries) {
         return {
           riskScore: 50,
@@ -312,7 +369,6 @@ Return ONLY valid JSON.`;
           fullRiskReport: "**Risk Analysis Failed**: Could not reach LLM provider."
         };
       }
-      // Wait 4s before retry to let TPM recover
       await new Promise(r => setTimeout(r, 4000));
     }
   }
