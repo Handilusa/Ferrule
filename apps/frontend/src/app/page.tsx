@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -28,6 +28,7 @@ import { AmbientBackground } from "@/components/AmbientBackground";
 
 export default function Home() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   useGSAP(() => {
     /* ── Hero entrance ── */
@@ -554,15 +555,59 @@ curl https://your-ferrule-instance/api/search?q=datadog+SOC2
       </section>
 
       {/* ═══════════════ FOOTER ═══════════════ */}
-      <footer className="relative z-10 border-t border-zinc-900 py-8 text-center">
-        <div className="flex items-center justify-center gap-6 text-xs text-zinc-600">
+      <footer className="relative z-10 border-t border-zinc-900 py-8 text-center flex flex-col items-center">
+        <div className="flex items-center justify-center gap-6 text-xs text-zinc-600 mb-6">
           <span>Built on <a href="https://stellar.org" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors">Stellar</a></span>
           <Separator orientation="vertical" className="h-3 bg-zinc-800" />
           <span>Powered by <a href="https://mpp.dev" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors">MPP</a></span>
           <Separator orientation="vertical" className="h-3 bg-zinc-800" />
           <span><a href="https://www.x402.org" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors">x402</a></span>
         </div>
+        
+        <div className="flex items-center justify-center gap-5">
+          <button onClick={() => setRedirectUrl("https://github.com/Handilusa/Ferrule")} className="text-zinc-500 hover:text-white transition-colors" title="GitHub Repository">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          </button>
+          <button onClick={() => setRedirectUrl("https://t.me/Furrule_monitor_bot")} className="text-zinc-500 hover:text-white transition-colors" title="Ferrule Monitor Telegram Bot">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.223-.548.223l.188-2.623 4.823-4.35c.212-.188-.045-.292-.325-.105l-5.96 3.75-2.525-.791c-.553-.173-.564-.553.115-.819l9.855-3.797c.465-.172.88.113.633.916z"/></svg>
+          </button>
+          <button onClick={() => setRedirectUrl("https://x.com/Cebohia18")} className="text-zinc-500 hover:text-white transition-colors" title="Developer X / Twitter">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1227" fill="currentColor" className="w-4 h-4"><path d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z"/></svg>
+          </button>
+        </div>
       </footer>
+
+      {/* Redirect Pop-up Modal */}
+      {redirectUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <h3 className="text-lg font-medium text-white mb-2">Leaving Ferrule</h3>
+            <p className="text-sm text-zinc-400 mb-6 font-light">
+              You are about to securely leave this page and navigate to an external site. Do you want to continue?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-zinc-800 bg-transparent text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                onClick={() => setRedirectUrl(null)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                size="sm"
+                className="bg-white text-black hover:bg-zinc-200 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                onClick={() => {
+                  window.open(redirectUrl, "_blank");
+                  setRedirectUrl(null);
+                }}
+              >
+                Continue <span className="font-mono text-zinc-500 ml-2 border-l border-zinc-300 pl-2">↗</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
