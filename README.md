@@ -1,5 +1,8 @@
 ![Network](https://img.shields.io/badge/Stellar-Testnet-blue?logo=stellar&logoColor=white)
+![x402](https://img.shields.io/badge/payments-x402-orange)
+![MPP](https://img.shields.io/badge/streaming-MPP-purple)
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+![Soroban](https://img.shields.io/badge/contracts-Soroban-blueviolet)
 
 # Ferrule — Due Diligence Desk for SaaS B2B
 
@@ -110,7 +113,7 @@ sequenceDiagram
 • ATR (14): $0.0014 → volatility 0.91%
 • Support: $0.1526
 • Resistance: $0.1575
-• Fibs 38.2%: $0.16 | 61.8%: $0.16
+• Fibs 38.2%: $0.1542 | 61.8%: $0.1557
 
 💡 AI ANALYSIS: 
 🎯 Directional Bias: SHORT 85% confidence
@@ -254,4 +257,4 @@ These features are designed and ready to integrate as natural extensions of the 
 | **Cross-Chain Agent Discovery** | Extend Agent Registry to support agents on other chains (Monad, Ethereum L2s) while keeping settlement on Stellar. | Exploratory |
 
 ---
-*Built for the Stellar Meridian Hackathon 2026. Empowering autonomous institutional commerce.*
+*Built for the Stellar Hacks: Agents en DoraHacks. Empowering autonomous institutional commerce.*
