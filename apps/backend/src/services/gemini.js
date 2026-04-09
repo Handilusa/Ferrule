@@ -259,7 +259,7 @@ export async function fastChatResponse(prompt, systemPrompt) {
 export async function streamRiskAnalysis(report, sources, onBatch, directive = "") {
   if (directive.includes("mode: trading_monitor")) {
     try {
-      const responseText = await fastChatResponse(report, "Eres Ferrule, el analista Quant de derivados institucionales.");
+      const responseText = await fastChatResponse(report, "You are Ferrule, the institutional perpetual derivatives Quant analyst.");
       return {
           riskScore: 0,
           riskBreakdown: { security: 0, lockIn: 0, pricing: 0, dependency: 0, maturity: 0 },

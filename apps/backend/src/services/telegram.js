@@ -434,16 +434,23 @@ async function marketReportConversation(conversation, ctx) {
              .replace(/`([^`]+)`/g, '<code>$1</code>');
        };
 
+       const fibs = indicators.fibs || [];
+       const fibLabel = fibs.length ? `• Fibs 38.2%: $${fibs[1].toFixed(2)} | 61.8%: $${fibs[3].toFixed(2)}\n` : '';
+
        let finalMsg = `📊 <b>Ferrule Market — ${pair}</b>\n` +
       `📅 ${new Date().toUTCString()}\n\n` +
       `💲 Price: <code>$${priceData.current.price}</code> | ${priceData.current.change24h.toFixed(2)}% 24h\n\n` +
       `📈 <b>INDICATORS</b>\n` +
       `• RSI (14): ${indicators.rsi.toFixed(1)} ${rsiSignal(indicators.rsi)}\n` +
       `• EMA 9/21: $${indicators.ema9.toFixed(4)} / $${indicators.ema21.toFixed(4)} (${indicators.trend})\n` +
+      `• MACD: Hist ${indicators.macd.hist.toFixed(2)} (${indicators.macd.label})\n` +
+      `• OBV: ${indicators.obv.label}\n` +
+      `• ADX (14): ${indicators.adx.value.toFixed(1)} (${indicators.adx.label})\n` +
       `• ATR (14): $${indicators.atr.toFixed(4)} → volatility ${((indicators.atr / priceData.current.price)*100).toFixed(2)}%\n` +
       `• Support: $${indicators.support.toFixed(4)}\n` +
-      `• Resistance: $${indicators.resistance.toFixed(4)}\n\n` +
-      `💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}`;
+      `• Resistance: $${indicators.resistance.toFixed(4)}\n` +
+      fibLabel +
+      `\n💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}`;
        
        try {
          await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "HTML" });
