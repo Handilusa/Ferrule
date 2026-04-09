@@ -10,27 +10,21 @@ export async function getPriceData(pair) {
   }
 
   const [base, quote] = pair.split("/"); // e.g. "XLM/USDC"
-  
-  // Clean base for coingecko (xlm -> stellar)
-  let coinId = base.toLowerCase();
-  if (coinId === "xlm") coinId = "stellar";
-  if (coinId === "btc") coinId = "bitcoin";
-  if (coinId === "eth") coinId = "ethereum";
-  if (coinId === "sol") coinId = "solana";
+  const binanceSymbol = `${base.toUpperCase()}USDT`;
 
   let cgData = null;
   let ohlcv = [];
   
   try {
-    cgData = await fetchCoinGecko(coinId);
-    ohlcv = await fetchOHLCV(coinId, "usd", 1);
+    cgData = await fetchBinanceTicker(binanceSymbol);
+    ohlcv = await fetchBinanceOHLCV(binanceSymbol, "1h", 48); // 48 hours
   } catch (err) {
-    console.error("CoinGecko Fetch Error:", err.message);
-    // Fallback stub if CG fails or API key is missing
+    console.error("Binance Fetch Error:", err.message);
+    // Fallback stub if Binance fails
     cgData = { price: 0, change24h: 0, volume24h: 0, high24h: 0, low24h: 0, marketCap: 0 };
   }
   
-  // Horizon DEX price (Stub implementation  // Dex Price e.g. 
+  // Horizon DEX price (Stub implementation)
   const dexPrice = await fetchStellarDEX(base, quote).catch(() => null);
   const liquidity = await fetchSoroswap(base, quote).catch(() => null);
 
@@ -39,64 +33,48 @@ export async function getPriceData(pair) {
   return data;
 }
 
-async function fetchCoinGecko(coinId) {
-  const headers = {};
-  if (process.env.COINGECKO_API_KEY) {
-      headers["x-cg-demo-api-key"] = process.env.COINGECKO_API_KEY;
-  }
-  
+async function fetchBinanceTicker(symbol) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   
   try {
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&community_data=false`,
-      { headers, signal: controller.signal }
-    );
+    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`, { signal: controller.signal });
     clearTimeout(timeout);
     
-    if (!res.ok) throw new Error("CG Request failed");
+    if (!res.ok) throw new Error("Binance Request failed");
     const d = await res.json();
     return {
-      price: d.market_data.current_price.usd,
-      change24h: d.market_data.price_change_percentage_24h,
-      volume24h: d.market_data.total_volume.usd,
-      high24h: d.market_data.high_24h.usd,
-      low24h: d.market_data.low_24h.usd,
-      marketCap: d.market_data.market_cap.usd
+      price: parseFloat(d.lastPrice),
+      change24h: parseFloat(d.priceChangePercent),
+      volume24h: parseFloat(d.quoteVolume),
+      high24h: parseFloat(d.highPrice),
+      low24h: parseFloat(d.lowPrice),
+      marketCap: 0 // Not available in ticker endpoint, but unused in our risk models
     };
   } catch (err) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') {
-      throw new Error('CoinGecko timeout — please try again in 60s');
-    }
+    if (err.name === 'AbortError') throw new Error('Binance timeout — please try again');
     throw err;
   }
 }
 
-async function fetchOHLCV(coinId, currency, days) {
-  const headers = {};
-  if (process.env.COINGECKO_API_KEY) {
-      headers["x-cg-demo-api-key"] = process.env.COINGECKO_API_KEY;
-  }
-  
+async function fetchBinanceOHLCV(symbol, interval, limit) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   
   try {
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=${currency}&days=${days}`,
-      { headers, signal: controller.signal }
-    );
+    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`, { signal: controller.signal });
     clearTimeout(timeout);
     
-    if (!res.ok) throw new Error("CG OHLCV Request failed");
-    return await res.json(); // [[timestamp, open, high, low, close], ...]
+    if (!res.ok) throw new Error("Binance OHLCV Request failed");
+    const data = await res.json();
+    
+    // Binance format: [Open time, Open, High, Low, Close, Volume, ...]
+    // Our format: [[timestamp, open, high, low, close], ...]
+    return data.map(k => [k[0], parseFloat(k[1]), parseFloat(k[2]), parseFloat(k[3]), parseFloat(k[4])]);
   } catch (err) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') {
-      throw new Error('CoinGecko timeout — please try again in 60s');
-    }
+    if (err.name === 'AbortError') throw new Error('Binance timeout — please try again');
     throw err;
   }
 }
