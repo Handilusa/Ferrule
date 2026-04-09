@@ -72,6 +72,16 @@ export async function initBot() {
     });
     
     bot.use(conversations());
+    
+    // ESCAPE HATCH: If the user sends a command while inside a conversation, 
+    // kill the active conversation to prevent the bot from becoming unresponsive.
+    bot.use(async (ctx, next) => {
+      if (ctx.message?.text?.startsWith("/")) {
+         await ctx.conversation.exit();
+      }
+      return next();
+    });
+
     bot.use(createConversation(marketReportConversation));
 
     // START COMMAND & DEEP LINKING (Stateless HMAC verification)
