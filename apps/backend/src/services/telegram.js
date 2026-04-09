@@ -404,18 +404,25 @@ async function marketReportConversation(conversation, ctx) {
   await typeCtx.answerCallbackQuery();
 
   if (analysisType === "snapshot") {
-     await ctx.reply(`⏳ Contacting oracle and pulling OHLCV for ${pair}...`);
+     const msg = await ctx.reply(`⏳ Contacting oracle and pulling OHLCV for ${pair}...`);
      
      try {
+       console.log(`[Snapshot] Fetching OHLCV for ${pair}...`);
        const priceData = await getPriceData(pair);
+       console.log(`[Snapshot] OHLCV OK:`, priceData?.current?.price);
+
+       console.log(`[Snapshot] Computing indicators...`);
        const indicators = computeIndicators(priceData.ohlcv);
+       console.log(`[Snapshot] Indicators OK: RSI`, indicators?.rsi);
+
        const news = []; // In a generic snapshot, we omit news to save x402 cost or execute search if we want.
-       
        const quantPrompt = buildMarketPrompt(pair, priceData, indicators, news);
 
+       console.log(`[Snapshot] Calling Gemini...`);
        const analysis = await streamRiskAnalysis(quantPrompt, "", null, "mode: trading_monitor");
+       console.log(`[Snapshot] Gemini OK, length:`, analysis?.fullRiskReport?.length);
        
-       let msg = `📊 *Ferrule Market — ${pair}*\n` +
+       let finalMsg = `📊 *Ferrule Market — ${pair}*\n` +
       `📅 ${new Date().toUTCString()}\n\n` +
       `💲 Price: \`$${priceData.current.price}\` | ${priceData.current.change24h.toFixed(2)}% 24h\n\n` +
       `📈 *INDICATORS*\n` +
@@ -426,9 +433,10 @@ async function marketReportConversation(conversation, ctx) {
       `• Resistance: $${indicators.resistance.toFixed(4)}\n\n` +
       `💡 *AI ANALYSIS*: \n${analysis.fullRiskReport}`;
        
-       await ctx.reply(msg, { parse_mode: "Markdown" });
+       await ctx.api.editMessageText(ctx.chat.id, msg.message_id, finalMsg, { parse_mode: "Markdown" });
      } catch (err) {
-       await ctx.reply(`❌ Failed to generate snapshot: ${err.message}`);
+       console.error('[Snapshot] ERROR:', err.message);
+       await ctx.api.editMessageText(ctx.chat.id, msg.message_id, `❌ Failed to generate snapshot: ${err.message}`);
      }
   } else {
      const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";

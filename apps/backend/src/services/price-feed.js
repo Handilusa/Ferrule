@@ -44,20 +44,34 @@ async function fetchCoinGecko(coinId) {
   if (process.env.COINGECKO_API_KEY) {
       headers["x-cg-demo-api-key"] = process.env.COINGECKO_API_KEY;
   }
-  const res = await fetch(
-    `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&community_data=false`,
-    { headers }
-  );
-  if (!res.ok) throw new Error("CG Request failed");
-  const d = await res.json();
-  return {
-    price: d.market_data.current_price.usd,
-    change24h: d.market_data.price_change_percentage_24h,
-    volume24h: d.market_data.total_volume.usd,
-    high24h: d.market_data.high_24h.usd,
-    low24h: d.market_data.low_24h.usd,
-    marketCap: d.market_data.market_cap.usd
-  };
+  
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  
+  try {
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&community_data=false`,
+      { headers, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    
+    if (!res.ok) throw new Error("CG Request failed");
+    const d = await res.json();
+    return {
+      price: d.market_data.current_price.usd,
+      change24h: d.market_data.price_change_percentage_24h,
+      volume24h: d.market_data.total_volume.usd,
+      high24h: d.market_data.high_24h.usd,
+      low24h: d.market_data.low_24h.usd,
+      marketCap: d.market_data.market_cap.usd
+    };
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      throw new Error('CoinGecko timeout — please try again in 60s');
+    }
+    throw err;
+  }
 }
 
 async function fetchOHLCV(coinId, currency, days) {
@@ -65,12 +79,26 @@ async function fetchOHLCV(coinId, currency, days) {
   if (process.env.COINGECKO_API_KEY) {
       headers["x-cg-demo-api-key"] = process.env.COINGECKO_API_KEY;
   }
-  const res = await fetch(
-    `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=${currency}&days=${days}`,
-    { headers }
-  );
-  if (!res.ok) throw new Error("CG OHLCV Request failed");
-  return res.json(); // [[timestamp, open, high, low, close], ...]
+  
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  
+  try {
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/coins/${coinId}/ohlc?vs_currency=${currency}&days=${days}`,
+      { headers, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    
+    if (!res.ok) throw new Error("CG OHLCV Request failed");
+    return await res.json(); // [[timestamp, open, high, low, close], ...]
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      throw new Error('CoinGecko timeout — please try again in 60s');
+    }
+    throw err;
+  }
 }
 
 async function fetchStellarDEX(base, quote) {
