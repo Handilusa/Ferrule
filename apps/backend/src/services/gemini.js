@@ -10,7 +10,7 @@ const SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-2.5-flash";
 
 // Pool state
 let apiKeys = [];
@@ -63,13 +63,14 @@ function rotateKey(reason = "") {
 }
 
 /**
- * Detect if an error is a quota/rate-limit/503 error worth rotating for.
+ * Detect if an error is a quota/rate-limit/503/invalid key error worth rotating for.
  */
 function isQuotaError(err) {
   const msg = (err.message || "").toLowerCase();
   return msg.includes("429") || msg.includes("quota") || msg.includes("resource") ||
          msg.includes("rate") || msg.includes("exhausted") || msg.includes("limit") ||
-         msg.includes("503") || msg.includes("demand") || msg.includes("unavailable");
+         msg.includes("503") || msg.includes("demand") || msg.includes("unavailable") ||
+         msg.includes("invalid") || msg.includes("not found") || msg.includes("404");
 }
 
 /**
