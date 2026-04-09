@@ -151,6 +151,16 @@ The user controls mandates through abstract checkboxes in the Mission UI (e.g., 
 
 ---
 
+## 💻 Frictionless B2B Onboarding (UX)
+
+Ferrule bridges the gap between complex on-chain infrastructure and non-technical B2B users through a streamlined Web Console:
+
+1. **AP2 Mandate Sources (Zero-Code):** Users do not need to interact with Smart Contracts. They simply select checkboxes like `✓ Official Docs`, `✓ GitHub`, `✓ Tech Blogs`, or `✓ Security DBs`, and the UI autonomously compiles these policies into the Soroban contract.
+2. **XLM + USDC One-Click Setup (Testnet Faucet):** To remove Web3 onboarding friction, we engineered an automated background wizard that sequentially pings the Friendbot for XLM, establishes the USDC Trustline, and performs a testnet DEX swap — abstracting away wallet complexity into a single loading bar.
+3. **Telegram Deep Linking:** Linking a Stellar wallet to the Quant Agent is completely passwordless. The web console utilizes an HMAC-signed Deep Link button which redirects the user and instantly verifies the interface, presenting the success state: `✓ Account linked and receiving alerts`.
+
+---
+
 ## 📊 On-Chain Agent Reputation & SLA
 
 Each agent registered in the `agent-registry` Soroban contract now tracks verifiable mission outcomes:
