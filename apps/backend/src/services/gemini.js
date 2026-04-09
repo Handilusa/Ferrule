@@ -250,7 +250,7 @@ export async function fastChatResponse(prompt, systemPrompt) {
       return `⚠️ API Provider Error: ${err.message}`;
     }
   }
-  return `⚠️ All ${apiKeys.length} API keys exhausted.`;
+  return `⚠️ **Saturación Temporal del Proveedor de IA**\nNo pudimos procesar la solicitud porque los servidores de inteligencia artificial (Gemini) están temporalmente saturados o sin cuota disponible. \n\n*Por favor, intente de nuevo en unos momentos.*`;
 }
 
 /**
