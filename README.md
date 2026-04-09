@@ -32,6 +32,10 @@ Standard basic LLMs fail at high-stakes due diligence:
 2. **Human-in-the-Loop Steering:** Operators can pause the pipeline and inject directives mid-flight.
 3. **On-Chain Immutable Outcomes:** Every report hash is anchored to the Stellar ledger (`manageData`), proving cryptographically to stakeholders that the due diligence was performed at a specific point in time, free of tampering.
 
+### 🕵️‍♂️ The Verify Console (Cryptographic Proof)
+Ferrule features a dedicated **/verify** route in the frontend console designed specifically for compliance audits. When an enterprise auditor needs to review a past due diligence mission, they simply input the Stellar Transaction ID or SHA-256 Hash.
+The console autonomously queries the Stellar Testnet, extracts the anchored hash from the `manageData` operation, compares it against the raw JSON output, and mathematically proves whether the report was tampered with since the agents executed it.
+
 ---
 
 ## ⚙️ Architecture & Data Flow
@@ -171,6 +175,34 @@ Ferrule demonstrates the absolute necessity of a high-speed, low-cost network li
 | **On-Chain Anchoring** | `manageData` operation on Platform Wallet. | Immutable, verifiable proof-of-diligence for compliance teams. |
 | **Public Agent Registry** | `agent-registry` Soroban contract with SLA tracking. | Ferrule's agents are public x402 services with verifiable on-chain reputation. |
 | **AP2 Mandates** | `risk-mandates` Soroban contract. | Users define spend/source policies on-chain; agents are cryptographically bound to obey them. |
+
+### ⚖️ AI Compute Scalability & Profitability
+A core financial consideration of Ferrule is the underlying cost of inference vs. the revenue generated via `x402` / `MPP` streaming:
+- **Phase 1: Bootstrapping (Current):** We currently utilize a **Google Gemini 2.5 Flash API pool**. While this provides a 1M token context window ideal for processing massive B2B PDFs, it is a variable cost. At high scale, API pricing compresses the profit margins of our autonomous agents.
+- **Phase 2: Self-Hosted GPUs (Scaling):** The long-term architecture expects agents to route inference directly to self-hosted, open-weight LLMs (e.g., LLaMA 3 70B or DeepSeek) running on dedicated hardware. By operating on a fixed-cost server model while actively charging users per `x402` request, Ferrule unlocks a massive profit margin multiplier for its agent network.
+
+---
+
+## 🧩 Tech Stack, APIs & Core Dependencies
+
+Ferrule is built with a mix of production-grade modern tooling and fully custom algorithmic engines to minimize bloat:
+
+### Core Frameworks
+- **Frontend:** Next.js (App Router), TailwindCSS, GSAP (for high-fidelity Landing Page animations), Framer Motion, Radix UI.
+- **Backend:** Node.js, Express, WebSockets (for live agent streaming).
+- **Bot Framework:** GrammyJS (Telegram stateless inline interactions via HMAC).
+
+### APIs & Oracles
+- **Search Agent Oracle:** Tavily API (Replaces unreliable web scraping to guarantee deterministic JSON extraction and strict AP2 Mandate domain enforcement).
+- **Generative Intelligence:** Google Gemini 2.5 Flash API (Chosen for 1M context window; utilized for both Risk Evaluator and Quant Bias).
+- **Market Price Feeds:** KuCoin / Binance REST API (Real-time OHLCV aggregation for the Telegram Monitor).
+
+### Blockchain & Economics
+- **Stellar Native:** `@x402/stellar` (per-query billing), `@stellar/mpp` (streaming AI payments), `@stellar/stellar-sdk` (for verification and ledger anchoring).
+- **Smart Contracts:** Soroban (Rust) compiled to `wasm` — managing Agent SLA Registries and AP2 Mandates.
+
+### Mathematical Engine (Zero External Dependencies)
+- **Technical Analysis (Quant Agent):** Our MACD, RSI, ADX, EMA, ATR, and Fibonacci calculations are **100% natively written from scratch** (`apps/backend/src/services/technical-analysis.js`) without relying on generic npm packages. This provides us absolute execution speed, dynamic slicing natively suited for microcaps, and total control over precision math to prevent floating-point rounding collisions.
 
 ---
 
