@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
 let genAI = null;
 let model = null;
@@ -10,7 +10,27 @@ function getModel() {
       throw new Error("GEMINI_API_KEY is not set. Get one at https://aistudio.google.com/");
     }
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      safetySettings: [
+        {
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_NONE,
+        }
+      ]
+    });
   }
   return model;
 }
@@ -176,7 +196,7 @@ export async function fastChatResponse(prompt, systemPrompt) {
     return result.response.text();
   } catch (err) {
     console.error("[Gemini] Error in fast chat:", err.message);
-    return "Lo siento, no pude procesar tu solicitud en este momento.";
+    return `⚠️ API Provider Error: ${err.message}`;
   }
 }
 
