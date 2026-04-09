@@ -433,10 +433,20 @@ async function marketReportConversation(conversation, ctx) {
       `• Resistance: $${indicators.resistance.toFixed(4)}\n\n` +
       `💡 *AI ANALYSIS*: \n${analysis.fullRiskReport}`;
        
-       await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "Markdown" });
+       try {
+         await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "Markdown" });
+       } catch (formatErr) {
+         console.error('[Snapshot] Formatting/Edit ERROR:', formatErr.message);
+         // Fallback sin Markdown por si Gemini inyectó caracteres corruptos
+         await ctx.api.editMessageText(msg.chat.id, msg.message_id, "⚠️ Ferrule Market — Error de formato en la respuesta. \n" + analysis.fullRiskReport.slice(0, 500));
+       }
      } catch (err) {
        console.error('[Snapshot] ERROR:', err.message);
-       await ctx.api.editMessageText(msg.chat.id, msg.message_id, `❌ Failed to generate snapshot (or timeout): ${err.message}`);
+       try {
+         await ctx.api.editMessageText(msg.chat.id, msg.message_id, `❌ Failed to generate snapshot (or timeout): ${err.message}`);
+       } catch (fallbackErr) {
+         console.error('[Snapshot] Double Fault ERROR:', fallbackErr.message);
+       }
      }
   } else {
      const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
