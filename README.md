@@ -24,8 +24,11 @@ Standard basic LLMs fail at high-stakes due diligence:
 2. **Human-in-the-Loop Steering:** Operators can pause the pipeline and inject directives mid-flight.
 3. **On-Chain Immutable Outcomes:** Every report hash is anchored to the Stellar ledger (`manageData`), proving cryptographically to stakeholders that the due diligence was performed at a specific point in time, free of tampering.
 
+---
+
 ## ⚙️ Architecture & Data Flow
 
+### 1. The Due Diligence Swarm
 ```mermaid
 sequenceDiagram
     participant U as 👤 Operator
@@ -61,13 +64,16 @@ sequenceDiagram
     O-->>U: Final Report + On-chain Verification Hash
 ```
 
-### Quantitative Market Monitor (Perpetual Telegram Agent)
+### 2. Quantitative Market Monitor (Perpetual Telegram Agent)
+Ferrule features a fully autonomous quantitative agent accessible via Telegram. The Telegram module uses stateless, timestamped **HMAC SHA-256 verification** to link Web Console wallets to Telegram IDs without requiring a centralized SQL database.
+
+The user can ask the bot to analyze tokens (e.g., "$XLM") or manage perpetual monitors. It natively detects `$TICKER` mentions and parses Native XLM/USDC token pools.
 ```mermaid
 sequenceDiagram
-    User->>TelegramBot: /snapshot XLM/USDC
-    TelegramBot->>PriceFeed: getOHLCV(200 candles)
+    User->>TelegramBot: /snapshot XLM/USDC (or detects $XLM)
+    TelegramBot->>PriceFeed: getOHLCV(100 candles)
     PriceFeed->>Binance: REST API
-    TelegramBot->>QuantEngine: RSI + ATR + EMA + MACD
+    TelegramBot->>QuantEngine: RSI + ATR + EMA + MACD 
     TelegramBot->>x402Gateway: POST /analyze (pay-per-request)
     x402Gateway->>StellarTestnet: USDC payment tx
     StellarTestnet-->>x402Gateway: txHash confirmed
@@ -75,6 +81,8 @@ sequenceDiagram
     Gemini-->>TelegramBot: markdown report
     TelegramBot-->>User: ⚡ informe + 🔗 txHash
 ```
+
+---
 
 ## 🛡️ AP2 Risk Mandates (On-Chain Policy Enforcement)
 
@@ -87,8 +95,10 @@ Ferrule implements **AP2-style mandates** on Stellar — the user defines spendi
 
 The user controls mandates through abstract checkboxes in the Mission UI (e.g., "Official Docs", "GitHub", "Security DBs"), which internally map to real domain patterns written to Soroban as CSV strings.
 
-**Contract:** `contracts/risk-mandates/src/lib.rs`
+**Contract:** `contracts/risk-mandates/src/lib.rs`  
 **Verified Build Hash:** `3ca8360df3d87e1bd00defb076f81590ed96904e8fe0d53712345055bad0c0c2`
+
+---
 
 ## 📊 On-Chain Agent Reputation & SLA
 
@@ -102,8 +112,10 @@ The Orchestrator calls `record_mission(agent_id, success)` as a **real Soroban T
 
 This creates a **trustless, on-chain reputation layer** for autonomous agents — something not currently implemented in any Soroban project for this use case.
 
-**Contract:** `contracts/agent-registry/src/lib.rs`
+**Contract:** `contracts/agent-registry/src/lib.rs`  
 **Verified Build Hash:** `d891bd511d46ea04ef0b1218ef70095a19c5b3c2b6147c421bef765f33c76bba`
+
+---
 
 ## 💎 Stellar Native Economics
 Ferrule demonstrates the absolute necessity of a high-speed, low-cost network like Stellar.
@@ -115,6 +127,20 @@ Ferrule demonstrates the absolute necessity of a high-speed, low-cost network li
 | **On-Chain Anchoring** | `manageData` operation on Platform Wallet. | Immutable, verifiable proof-of-diligence for compliance teams. |
 | **Public Agent Registry** | `agent-registry` Soroban contract with SLA tracking. | Ferrule's agents are public x402 services with verifiable on-chain reputation. |
 | **AP2 Mandates** | `risk-mandates` Soroban contract. | Users define spend/source policies on-chain; agents are cryptographically bound to obey them. |
+
+---
+
+## 📝 Submission Details & Technical Disclosures (Hackathon Rules)
+
+For complete transparency regarding the current state of the prototype, please note the following implementation details, API usage, and fallback mechanisms:
+
+1. **Network Configuration**: The application is fully deployed and configured to run on the **Stellar Testnet**. Synthetic Testnet USDC is minted and utilized for all agent payments.
+2. **Search Agent Engine**: We migrated from an unreliable web-scraped SearXNG instance to the **Tavily API** to ensure maximum reliability and deterministic JSON extraction during the hackathon demo. It rigorously enforces the domains passed by our Soroban Contracts.
+3. **Generative AI Resiliency**: We utilize **Google Gemini 2.5 Flash** due to its expansive context window. To avoid Hackathon free-tier rate limits (429 errors / TPM exhaustion), we engineered a **Multi-Key Round Robin Pool** that intercepts 503s/429s and seamlessly rotates API Keys mid-stream without crashing the orchestrator.
+4. **Market Data (Mocked Fallbacks)**: For the Telegram quantitative agent, OHLCV data is fetched live from the Binance REST API. However, due to liquidity limitations on specific Testnet pairs, requests for minor tokens or low-liquidity USDC pairs silently fallback to cross-evaluating their respective high-liquidity USDT pair under the hood to ensure the mathematical indicators (fibonacci, MACD) do not throw `NaN` exceptions during the demo.
+5. **No Central Database**: Ferrule intentionally utilizes purely stateless infrastructure. Wallets are authenticated via HMAC SHA-256 signatures injected directly into deep links from the web, removing the need for password registries. 
+
+---
 
 ## 🚀 Running Locally
 
@@ -152,4 +178,4 @@ These features are designed and ready to integrate as natural extensions of the 
 | **Cross-Chain Agent Discovery** | Extend Agent Registry to support agents on other chains (Monad, Ethereum L2s) while keeping settlement on Stellar. | Exploratory |
 
 ---
-*Built for the Stellar Ferrule Hackathon.*
+*Built for the Stellar Meridian Hackathon 2026. Empowering autonomous institutional commerce.*
