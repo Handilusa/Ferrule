@@ -196,6 +196,8 @@ ATR(14): ${indicators.atr.toFixed(4)}
 Support: ${indicators.support.toFixed(4)} | Resistance: ${indicators.resistance.toFixed(4)}
 ${fibStr}
 
+Si hay señales contradictorias entre indicadores, menciona explícitamente los indicadores que contradicen el bias y explica por qué los descuentas. Con ADX < 20, reduce la confianza máxima al 60%.
+
 Generate ONLY this in Telegram Markdown:
 1. 🎯 Directional Bias (LONG/SHORT/NEUTRAL) with % confidence
 2. 📍 Optimal Entry (specific price)
