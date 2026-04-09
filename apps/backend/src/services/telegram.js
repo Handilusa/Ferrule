@@ -422,23 +422,36 @@ async function marketReportConversation(conversation, ctx) {
        const analysis = await streamRiskAnalysis(quantPrompt, "", null, "mode: trading_monitor");
        console.log(`[Snapshot] Gemini OK, length:`, analysis?.fullRiskReport?.length);
        
-       let finalMsg = `📊 *Ferrule Market — ${pair}*\n` +
+       const cleanReport = (text) => {
+         if (!text) return "";
+         return text
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+             .replace(/__(.*?)__/g, '<u>$1</u>')
+             .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
+             .replace(/`([^`]+)`/g, '<code>$1</code>');
+       };
+
+       let finalMsg = `📊 <b>Ferrule Market — ${pair}</b>\n` +
       `📅 ${new Date().toUTCString()}\n\n` +
-      `💲 Price: \`$${priceData.current.price}\` | ${priceData.current.change24h.toFixed(2)}% 24h\n\n` +
-      `📈 *INDICATORS*\n` +
+      `💲 Price: <code>$${priceData.current.price}</code> | ${priceData.current.change24h.toFixed(2)}% 24h\n\n` +
+      `📈 <b>INDICATORS</b>\n` +
       `• RSI (14): ${indicators.rsi.toFixed(1)} ${rsiSignal(indicators.rsi)}\n` +
       `• EMA 9/21: $${indicators.ema9.toFixed(4)} / $${indicators.ema21.toFixed(4)} (${indicators.trend})\n` +
       `• ATR (14): $${indicators.atr.toFixed(4)} → volatility ${((indicators.atr / priceData.current.price)*100).toFixed(2)}%\n` +
       `• Support: $${indicators.support.toFixed(4)}\n` +
       `• Resistance: $${indicators.resistance.toFixed(4)}\n\n` +
-      `💡 *AI ANALYSIS*: \n${analysis.fullRiskReport}`;
+      `💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}`;
        
        try {
-         await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "Markdown" });
+         await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "HTML" });
        } catch (formatErr) {
          console.error('[Snapshot] Formatting/Edit ERROR:', formatErr.message);
-         // Fallback sin Markdown por si Gemini inyectó caracteres corruptos
-         await ctx.api.editMessageText(msg.chat.id, msg.message_id, "⚠️ Ferrule Market — Error de formato en la respuesta. \n" + analysis.fullRiskReport.slice(0, 500));
+         // Fallback sin Markdown si inyectó caracteres html corruptos (sin limite de caracteres)
+         const strippedMsg = finalMsg.replace(/<[^>]*>?/gm, ''); // Quita tags HTML para el resguardo
+         await ctx.api.editMessageText(msg.chat.id, msg.message_id, "⚠️ <i>Aviso: Formato complejo deshabilitado</i>\n\n" + strippedMsg, { parse_mode: "HTML" });
        }
      } catch (err) {
        console.error('[Snapshot] ERROR:', err.message);
