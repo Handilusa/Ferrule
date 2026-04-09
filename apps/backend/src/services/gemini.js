@@ -63,12 +63,13 @@ function rotateKey(reason = "") {
 }
 
 /**
- * Detect if an error is a quota/rate-limit error worth rotating for.
+ * Detect if an error is a quota/rate-limit/503 error worth rotating for.
  */
 function isQuotaError(err) {
   const msg = (err.message || "").toLowerCase();
   return msg.includes("429") || msg.includes("quota") || msg.includes("resource") ||
-         msg.includes("rate") || msg.includes("exhausted") || msg.includes("limit");
+         msg.includes("rate") || msg.includes("exhausted") || msg.includes("limit") ||
+         msg.includes("503") || msg.includes("demand") || msg.includes("unavailable");
 }
 
 /**
