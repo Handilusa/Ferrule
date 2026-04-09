@@ -153,7 +153,7 @@ export default function Home() {
         </h1>
 
         <p className="hero-sub max-w-2xl text-zinc-500 text-lg sm:text-xl leading-relaxed mb-10 font-light">
-          Stop trusting generic LLMs. Ferrule deploys autonomous agents to cross-examine B2B vendors for lock-in, security gaps, and pricing risks — completely verifiable via Stellar micropayments and on-chain hashes.
+          Stop trusting generic LLMs. Ferrule deploys autonomous agents to cross-examine B2B vendors for lock-in, security gaps, and pricing risks — strictly governed by on-chain AP2 Risk Mandates and verifiable via Stellar micropayments.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-16">
@@ -242,7 +242,7 @@ export default function Home() {
         <div className="text-center mb-20">
           <p className="text-xs text-zinc-600 tracking-[0.3em] uppercase mb-4">Architecture</p>
           <h2 className="text-3xl sm:text-4xl font-light text-zinc-200 tracking-tight">
-            Four Agents. Immutable Proof.
+            Three Agents. Immutable Proof.
           </h2>
         </div>
 
@@ -359,14 +359,14 @@ export default function Home() {
         {/* Contract Badge */}
         <div className="flex justify-center mb-10">
           <a
-            href="https://stellar.expert/explorer/testnet/contract/CAIDRIF26CKCJYTN6ZDH5HLQEJZL53YWK352OOVY56JV67MD4JKX5E5O"
+            href="https://stellar.expert/explorer/testnet/contract/CBFO7Y74GBX5C5CVBVGXAX5LG4GSVK44OSKZNOZCMOTZXKA7WGROYLH2"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-3 px-5 py-3 rounded-full bg-zinc-900/80 border border-zinc-700/50 hover:border-zinc-500/60 transition-all group"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs text-zinc-400 font-mono group-hover:text-zinc-200 transition-colors">
-              CAIDRIF26CKC...4JKX5E5O
+              CBFO7Y74GBX5...WGROYLH2
             </span>
             <Badge variant="outline" className="border-emerald-900/50 text-emerald-400/80 text-[9px] ml-1">
               LIVE ON TESTNET
@@ -512,10 +512,10 @@ curl https://your-ferrule-instance/api/search?q=datadog+SOC2
               What prevents the agent from overcharging?
             </AccordionTrigger>
             <AccordionContent className="text-sm text-zinc-500 leading-relaxed">
-              The user sets a hard budget cap locked into the channel&apos;s Soroban contract. 
-              The orchestrator cannot exceed this amount — the contract enforces the ceiling 
-              cryptographically. Each commitment monotonically increases, so the agent can 
-              never &quot;undo&quot; a payment or inflate beyond the deposited USDC.
+              Trust is enforced cryptographically through AP2 Risk Mandates. Before a mission, 
+              the user deploys a strict budget ceiling and domain whitelist to a Soroban mandate contract. 
+              The orchestrator enforces this on-chain state in real-time, instantly blocking any x402 micropayment 
+              that exceeds the budget or attempts to retrieve data from unapproved intelligence sources.
             </AccordionContent>
           </AccordionItem>
 
