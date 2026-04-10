@@ -6,9 +6,11 @@ export async function getMandate(userId) {
   const contractId = process.env.MANDATES_CONTRACT_ID;
   if (!contractId) throw new Error("MANDATES_CONTRACT_ID missing");
   
+  const randomKp = Keypair.random();
+  const dummyAccount = new StellarSdk.Account(randomKp.publicKey(), "0");
   const contract = new Contract(contractId);
   const builder = new TransactionBuilder(
-    Keypair.random().publicKey(),
+    dummyAccount,
     { fee: "100", networkPassphrase: Networks.TESTNET }
   ).addOperation(contract.call("get_mandate", xdr.ScVal.scvString(userId)));
 
