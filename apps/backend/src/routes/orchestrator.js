@@ -428,7 +428,8 @@ Return ONLY the JSON object.`;
         }
       }
 
-      await sleep(300);
+      // Wait 1 full ledger (~5s) to avoid Stellar Testnet 1-TX-per-ledger limits
+      await sleep(6000);
     }
 
     addTimelineEvent(session, wss, "search_done", `Search complete: ${allSearchResults.length} results from ${session.searchQueries} queries`);
