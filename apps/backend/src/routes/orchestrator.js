@@ -334,8 +334,7 @@ Return ONLY the JSON object.`;
            const submitRes = await horizon.submitTransaction(tx);
            paymentTxId = submitRes.hash;
          } catch (txErr) {
-           console.warn(`[x402] Horizon Testnet timeout/error (${txErr.message}), falling back to dummy TX for demo continuity.`);
-           paymentTxId = "pending_testnet_tx_" + Date.now();
+           throw new Error(`Stellar Horizon Rate Limit / Timeout al pagar x402: ${txErr.message}`);
          }
          
          // Attach payment validation per x402 spec
