@@ -56,7 +56,7 @@ export async function runMonitorCycle(monitor) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Payment": JSON.stringify({ transaction: paymentTxId })
+        "X-Payment": JSON.stringify({ x402Version: 1, transaction: paymentTxId })
       },
       body: JSON.stringify({ query, maxResults: 3 })
     });

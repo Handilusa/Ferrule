@@ -355,7 +355,7 @@ Return ONLY the JSON object.`;
          // Attach payment validation per x402 spec — only if we got a real hash
          if (paymentTxId) {
            reqHeaders["X-Payment"] = JSON.stringify({ 
-             version: "1", 
+             x402Version: 1, 
              transaction: paymentTxId 
            });
          }
