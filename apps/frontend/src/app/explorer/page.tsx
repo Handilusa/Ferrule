@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useExplorerSocket } from "@/hooks/useExplorerSocket";
 import { FerruleLogo } from "@/components/svg/FerruleLogo";
@@ -26,22 +26,37 @@ export default function ExplorerPage() {
   const [activeTab, setActiveTab] = useState<ExplorerTabKey>("overview");
   const [agentRefresh, setAgentRefresh] = useState(0);
 
-  // Compute chart data from stats (accumulated during session)
-  const opsPerHourData = useMemo(() => {
-    // Simulated hourly data — in production this would come from a time-series endpoint
-    // For hackathon: generate from current ops_per_second with slight variance
-    const base = explorer.stats.ops_per_second;
-    return Array.from({ length: 24 }, (_, i) => {
-      const variance = Math.sin(i * 0.5) * 0.3 + 0.7;
-      return Math.max(0, Math.round(base * 3600 * variance * (0.3 + Math.random() * 0.7)));
-    });
-  }, [explorer.stats.ops_per_second]);
+  // Charts show real accumulated data only — no mock/random generation
+  // These accumulate from WebSocket events during the session
+  const [opsHistory, setOpsHistory] = useState<number[]>(new Array(24).fill(0));
+  const [missionsHistory, setMissionsHistory] = useState<number[]>(new Array(7).fill(0));
 
-  const missionsPerDayData = useMemo(() => {
-    const base = explorer.stats.total_missions;
-    return Array.from({ length: 7 }, (_, i) => {
-      const dayFactor = i === 6 ? 1 : 0.5 + Math.random() * 0.5;
-      return Math.max(0, Math.round(base * dayFactor / 7));
+  // Track ops per hour bucket from live ledger data
+  const lastHourRef = useRef(new Date().getHours());
+  useEffect(() => {
+    if (explorer.ledgers.length === 0) return;
+    const currentHour = new Date().getHours();
+    const latestLedger = explorer.ledgers[0];
+    setOpsHistory((prev) => {
+      const next = [...prev];
+      next[currentHour] = (next[currentHour] || 0) + (latestLedger.operation_count || 0);
+      // Reset if hour changed
+      if (currentHour !== lastHourRef.current) {
+        lastHourRef.current = currentHour;
+      }
+      return next;
+    });
+  }, [explorer.ledgers]);
+
+  // Track missions from stats updates
+  useEffect(() => {
+    if (explorer.stats.total_missions === 0) return;
+    const dayIdx = new Date().getDay(); // 0=Sun → mapped to array position 6
+    const mappedIdx = dayIdx === 0 ? 6 : dayIdx - 1;
+    setMissionsHistory((prev) => {
+      const next = [...prev];
+      next[mappedIdx] = explorer.stats.total_missions;
+      return next;
     });
   }, [explorer.stats.total_missions]);
 
@@ -102,8 +117,8 @@ export default function ExplorerPage() {
 
             {/* Mini Charts */}
             <div className="grid lg:grid-cols-2 gap-4">
-              <OpsPerHourChart data={opsPerHourData} />
-              <MissionsPerDayChart data={missionsPerDayData} />
+              <OpsPerHourChart data={opsHistory} />
+              <MissionsPerDayChart data={missionsHistory} />
             </div>
           </div>
         )}

@@ -71,6 +71,12 @@ export function AgentLeaderboard({ backendUrl, refreshTrigger = 0 }: AgentLeader
                   <td className="px-4 py-3 text-center"><div className="w-6 h-4 bg-zinc-800/30 rounded mx-auto" /></td>
                 </tr>
               ))
+            ) : agents.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-zinc-600 text-xs">
+                  No agents registered on-chain yet. Deploy a mission to register agents.
+                </td>
+              </tr>
             ) : (
               agents.map((agent, i) => {
                 const successColor =

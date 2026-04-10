@@ -34,12 +34,7 @@ router.get("/stats", (_req, res) => {
 router.get("/agents", async (_req, res) => {
   const contractId = process.env.REGISTRY_CONTRACT_ID;
   if (!contractId) {
-    // Return mock data when no contract is deployed
-    return res.json([
-      { name: "ferrule_search", total_missions: 0, successful_missions: 0, success_rate: 0, usdc_earned: "0.0000", status: "active", protocol: "x402", price: "0.0002" },
-      { name: "ferrule_llm", total_missions: 0, successful_missions: 0, success_rate: 0, usdc_earned: "0.0000", status: "active", protocol: "mpp", price: "0.00001" },
-      { name: "ferrule_risk", total_missions: 0, successful_missions: 0, success_rate: 0, usdc_earned: "0.0000", status: "active", protocol: "x402", price: "0.005" },
-    ]);
+    return res.json([]);
   }
 
   try {
