@@ -25,7 +25,7 @@ const NETWORK = "stellar-testnet";
 const PRICE = "0.0002"; // USDC per query
 const USDC = getTokenBySymbol(NETWORK, "USDC");
 const facilitator = useFacilitator({ 
-  url: process.env.FACILITATOR_URL || "https://facilitator.stellar.x402.org" 
+  url: process.env.FACILITATOR_URL || "https://ferrule-backend.onrender.com" 
 });
 
 function getPaymentRequirements() {
