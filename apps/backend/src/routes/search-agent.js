@@ -29,6 +29,7 @@ const facilitator = useFacilitator({ url: "https://www.x402.org/facilitator", ve
 function getPaymentRequirements() {
   const receiver = process.env.SEARCH_AGENT_PUBLIC_KEY;
   return {
+    version: "1",
     scheme: "exact",
     network: NETWORK,
     maxAmountRequired: PRICE,
