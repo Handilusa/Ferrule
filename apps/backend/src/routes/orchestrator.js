@@ -352,11 +352,13 @@ Return ONLY the JSON object.`;
            paymentTxId = null; // Bypass final if absolutely dead
          }
          
-         // Attach payment validation per x402 spec
-         reqHeaders["X-Payment"] = JSON.stringify({ 
-           version: "1", 
-           transaction: paymentTxId 
-         });
+         // Attach payment validation per x402 spec — only if we got a real hash
+         if (paymentTxId) {
+           reqHeaders["X-Payment"] = JSON.stringify({ 
+             version: "1", 
+             transaction: paymentTxId 
+           });
+         }
       }
 
       const res = await fetch(searchUrl, {
