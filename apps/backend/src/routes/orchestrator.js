@@ -353,7 +353,10 @@ Return ONLY the JSON object.`;
          }
          
          // Attach payment validation per x402 spec
-         reqHeaders["X-Payment"] = JSON.stringify({ transaction: paymentTxId });
+         reqHeaders["X-Payment"] = JSON.stringify({ 
+           version: "1", 
+           transaction: paymentTxId 
+         });
       }
 
       const res = await fetch(searchUrl, {
@@ -363,6 +366,11 @@ Return ONLY the JSON object.`;
       });
       
       const searchData = await res.json();
+      
+      if (!res.ok) {
+         console.warn(`[Orchestrator] searchUrl failed with status ${res.status}:`, searchData);
+      }
+      
       const results = searchData.results || [];
       allSearchResults = allSearchResults.concat(results);
 
