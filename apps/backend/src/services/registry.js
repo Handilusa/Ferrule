@@ -2,6 +2,24 @@ import * as StellarSdk from "@stellar/stellar-sdk";
 const { Keypair, Networks, Contract, TransactionBuilder, BASE_FEE, rpc, scValToNative, nativeToScVal, xdr } = StellarSdk;
 const rpcServer = new rpc.Server("https://soroban-testnet.stellar.org");
 
+async function withRetry(operation, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (err) {
+      if (
+        i < maxRetries - 1 &&
+        (err.code === "ECONNRESET" || err.response?.status === 504 || err.message?.includes("timeout"))
+      ) {
+        console.warn(`[Soroban RPC] Transient error (${err.code || err.response?.status}). Retry ${i + 1}/${maxRetries}...`);
+        await new Promise(r => setTimeout(r, (i + 1) * 2000));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
 export async function registerAgent(name, url, price, asset, protocol, description) {
   const contractId = process.env.REGISTRY_CONTRACT_ID;
   if (!contractId) {
@@ -24,7 +42,7 @@ export async function registerAgent(name, url, price, asset, protocol, descripti
     xdr.ScVal.scvString(orchestratorKp.publicKey()), // owner
   ];
 
-  const orchestratorAccount = await rpcServer.getAccount(orchestratorKp.publicKey());
+  const orchestratorAccount = await withRetry(() => rpcServer.getAccount(orchestratorKp.publicKey()));
 
   const invokeTx = new TransactionBuilder(orchestratorAccount, {
     fee: (parseInt(BASE_FEE) * 100).toString(),
@@ -34,21 +52,21 @@ export async function registerAgent(name, url, price, asset, protocol, descripti
     .setTimeout(30)
     .build();
 
-  const prepared = await rpcServer.prepareTransaction(invokeTx);
+  const prepared = await withRetry(() => rpcServer.prepareTransaction(invokeTx));
   prepared.sign(orchestratorKp);
 
-  const sendRes = await rpcServer.sendTransaction(prepared);
+  const sendRes = await withRetry(() => rpcServer.sendTransaction(prepared));
   if (sendRes.status === "ERROR") {
     console.error("Registry TX Failed:", sendRes.errorResult);
     return false;
   }
 
   // Wait for submission
-  let result = await rpcServer.getTransaction(sendRes.hash);
+  let result = await withRetry(() => rpcServer.getTransaction(sendRes.hash));
   for (let i = 0; i < 20; i++) {
     if (result.status !== "NOT_FOUND") break;
     await new Promise((r) => setTimeout(r, 2000));
-    result = await rpcServer.getTransaction(sendRes.hash);
+    result = await withRetry(() => rpcServer.getTransaction(sendRes.hash));
   }
 
   if (result.status === "SUCCESS") {
@@ -71,7 +89,7 @@ export async function listAgents() {
   ).addOperation(contract.call("list_agents"));
 
   try {
-    const simRes = await rpcServer.simulateTransaction(builder.setTimeout(30).build());
+    const simRes = await withRetry(() => rpcServer.simulateTransaction(builder.setTimeout(30).build()));
     if (simRes.result && simRes.result.retval) {
        // Return raw structure to avoid native parsing errors in backend
        return Object.keys(simRes.result.retval);
@@ -102,15 +120,15 @@ export async function recordMission(name, success) {
   ];
   
   try {
-    const orchestratorAccount = await rpcServer.getAccount(orchestratorKp.publicKey());
+    const orchestratorAccount = await withRetry(() => rpcServer.getAccount(orchestratorKp.publicKey()));
     const invokeTx = new TransactionBuilder(orchestratorAccount, {
       fee: (parseInt(BASE_FEE) * 100).toString(),
       networkPassphrase: Networks.TESTNET,
     }).addOperation(contract.call("record_mission", ...args)).setTimeout(30).build();
     
-    const prepared = await rpcServer.prepareTransaction(invokeTx);
+    const prepared = await withRetry(() => rpcServer.prepareTransaction(invokeTx));
     prepared.sign(orchestratorKp);
-    const sendRes = await rpcServer.sendTransaction(prepared);
+    const sendRes = await withRetry(() => rpcServer.sendTransaction(prepared));
     if (sendRes.status === "ERROR") {
       console.error(`Registry RecordMission TX Failed for ${name}`);
       return false;
