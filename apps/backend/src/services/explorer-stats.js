@@ -66,14 +66,17 @@ export function updateStatsFromLedger(ledgerData) {
     );
   }
 
-  // Add operation count from ledger
-  stats.total_ops += (ledgerData.operation_count || 0);
+  // NOTE: Do NOT count ledger operation_count here — that includes ALL testnet ops.
+  // total_ops is only incremented from Ferrule-tagged operations in updateStatsFromOperation().
 }
 
 /**
  * Called by horizon-stream.js on each classified operation.
  */
 export function updateStatsFromOperation(opData) {
+  // Count only Ferrule-tagged operations
+  stats.total_ops++;
+
   // Flip bucket if ≥1s has passed
   const now = Date.now();
   if (now - lastBucketFlip >= 1000) {

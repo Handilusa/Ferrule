@@ -36,7 +36,7 @@ export function getAgentOpBuffer() { return agentOpBuffer; }
  * Classify an operation into a Ferrule operation type.
  * Returns null if it's not Ferrule-related (should be filtered out).
  */
-function classifyOperation(op) {
+export function classifyOperation(op) {
   // manageData with FRL_ prefix → anchoring
   if (op.type === "manage_data" && op.name && op.name.startsWith("FRL_")) {
     return { opType: "ANC", label: "Report Anchored", detail: op.name };

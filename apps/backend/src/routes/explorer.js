@@ -11,7 +11,7 @@ import { Router } from "express";
 import { Horizon, Keypair } from "@stellar/stellar-sdk";
 import * as StellarSdk from "@stellar/stellar-sdk";
 import { getExplorerStats } from "../services/explorer-stats.js";
-import { getLedgerBuffer, getOperationBuffer, getAgentOpBuffer } from "../services/horizon-stream.js";
+import { getLedgerBuffer, getOperationBuffer, getAgentOpBuffer, classifyOperation } from "../services/horizon-stream.js";
 
 const { Networks, Contract, TransactionBuilder, rpc, xdr, scValToNative } = StellarSdk;
 
@@ -167,19 +167,29 @@ router.get("/operations", async (req, res) => {
     if (cursor) query = query.cursor(cursor);
 
     const records = await query.call();
-    const ops = records.records.map((op) => ({
-      id: op.id,
-      type: op.type,
-      created_at: op.created_at,
-      transaction_hash: op.transaction_hash,
-      source_account: op.source_account,
-      // Include payment-specific fields
-      ...(op.asset_code && { asset_code: op.asset_code }),
-      ...(op.amount && { amount: op.amount }),
-      ...(op.to && { to: op.to }),
-      ...(op.from && { from: op.from }),
-      ...(op.name && { name: op.name }),
-    }));
+    
+    // Apply Ferrule classification and filter out non-Ferrule ops
+    const ops = records.records
+      .map((op) => {
+        const classification = classifyOperation(op);
+        if (!classification) return null; // Not Ferrule-related
+        return {
+          id: op.id,
+          type: op.type,
+          created_at: op.created_at,
+          transaction_hash: op.transaction_hash,
+          source_account: op.source_account,
+          ferruleType: classification.opType,
+          ferruleLabel: classification.label,
+          ferruleDetail: classification.detail,
+          ...(op.asset_code && { asset_code: op.asset_code }),
+          ...(op.amount && { amount: op.amount }),
+          ...(op.to && { to: op.to }),
+          ...(op.from && { from: op.from }),
+          ...(op.name && { name: op.name }),
+        };
+      })
+      .filter(Boolean);
 
     res.json({
       operations: ops,

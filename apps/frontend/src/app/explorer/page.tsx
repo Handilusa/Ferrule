@@ -6,14 +6,12 @@ import { useExplorerSocket } from "@/hooks/useExplorerSocket";
 import { FerruleLogo } from "@/components/svg/FerruleLogo";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { ExplorerStatsRow } from "@/components/explorer/ExplorerStats";
-import { LedgerFeed } from "@/components/explorer/LedgerFeed";
 import { AgentOpFeed } from "@/components/explorer/AgentOpFeed";
 import { AgentLeaderboard } from "@/components/explorer/AgentLeaderboard";
 import { OpsPerHourChart } from "@/components/explorer/OpsPerHourChart";
 import { MissionsPerDayChart } from "@/components/explorer/MissionsPerDayChart";
 import {
   ExplorerTabBar,
-  LedgersTab,
   OperationsTab,
   ContractsTab,
   type ExplorerTabKey,
@@ -106,9 +104,8 @@ export default function ExplorerPage() {
             {/* Hero Stats */}
             <ExplorerStatsRow stats={explorer.stats} connected={explorer.connected} />
 
-            {/* Two-column: Ledgers + Agent Ops */}
-            <div className="grid lg:grid-cols-2 gap-4" style={{ minHeight: 340 }}>
-              <LedgerFeed ledgers={explorer.ledgers} />
+            {/* Ferrule Agent Operations */}
+            <div style={{ minHeight: 340 }}>
               <AgentOpFeed agentOps={explorer.agentOps} />
             </div>
 
@@ -120,13 +117,6 @@ export default function ExplorerPage() {
               <OpsPerHourChart data={opsHistory} />
               <MissionsPerDayChart data={missionsHistory} />
             </div>
-          </div>
-        )}
-
-        {/* ════════════ LEDGERS TAB ════════════ */}
-        {activeTab === "ledgers" && (
-          <div className="animate-fade-in">
-            <LedgersTab backendUrl={BACKEND_URL} />
           </div>
         )}
 

@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
-export type ExplorerTabKey = "overview" | "ledgers" | "operations" | "contracts" | "agents" | "missions";
+export type ExplorerTabKey = "overview" | "operations" | "contracts" | "agents" | "missions";
 
 const TABS: { key: ExplorerTabKey; label: string; icon: string }[] = [
   { key: "overview", label: "Overview", icon: "◎" },
-  { key: "ledgers", label: "Ledgers", icon: "▤" },
   { key: "operations", label: "Operations", icon: "⇄" },
   { key: "contracts", label: "Contracts", icon: "◇" },
   { key: "agents", label: "Agents", icon: "◆" },
@@ -40,98 +39,20 @@ export function ExplorerTabBar({ activeTab, onTabChange }: ExplorerTabsProps) {
   );
 }
 
-/* ── Tab Content: Paginated Ledgers ── */
+/* ── Badge colors by Ferrule type ── */
+const TYPE_BADGE: Record<string, { color: string; bg: string; border: string }> = {
+  x402: { color: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/20" },
+  ANC: { color: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/20" },
+  SLA: { color: "text-green-400", bg: "bg-green-400/10", border: "border-green-400/20" },
+  MANDATE: { color: "text-red-400", bg: "bg-red-400/10", border: "border-red-400/20" },
+  MPP: { color: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/20" },
+};
+
+/* ── Tab Content: Operations ── */
 interface PaginatedTableProps {
   backendUrl: string;
 }
 
-export function LedgersTab({ backendUrl }: PaginatedTableProps) {
-  const [ledgers, setLedgers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cursor, setCursor] = useState<string | null>(null);
-
-  const fetchLedgers = async (nextCursor?: string) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: "50", order: "desc" });
-      if (nextCursor) params.set("cursor", nextCursor);
-      const res = await fetch(`${backendUrl}/api/explorer/ledgers?${params}`);
-      const data = await res.json();
-      setLedgers(data.ledgers || []);
-      setCursor(data.next_cursor);
-    } catch (_) {}
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchLedgers(); }, [backendUrl]);
-
-  return (
-    <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/80 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-[11px] font-mono">
-          <thead>
-            <tr className="text-zinc-600 text-left text-[9px] uppercase tracking-wider border-b border-zinc-800/40">
-              <th className="px-4 py-3 font-medium">#Sequence</th>
-              <th className="px-4 py-3 font-medium">Closed At</th>
-              <th className="px-4 py-3 font-medium text-right">Ops</th>
-              <th className="px-4 py-3 font-medium text-right">TXs</th>
-              <th className="px-4 py-3 font-medium text-right">Failed</th>
-              <th className="px-4 py-3 font-medium">Hash</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              [...Array(10)].map((_, i) => (
-                <tr key={i} className="border-b border-zinc-800/20 animate-pulse">
-                  {[...Array(6)].map((_, j) => (
-                    <td key={j} className="px-4 py-3"><div className="h-4 bg-zinc-800/40 rounded w-16" /></td>
-                  ))}
-                </tr>
-              ))
-            ) : (
-              ledgers.map((l) => (
-                <tr
-                  key={l.sequence}
-                  className="border-b border-zinc-800/20 last:border-0 hover:bg-zinc-900/40 transition-colors"
-                >
-                  <td className="px-4 py-2.5">
-                    <a
-                      href={`https://stellar.expert/explorer/testnet/ledger/${l.sequence}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-teal-400 hover:text-teal-300"
-                    >
-                      #{l.sequence.toLocaleString()}
-                    </a>
-                  </td>
-                  <td className="px-4 py-2.5 text-zinc-400">{new Date(l.closed_at).toLocaleTimeString()}</td>
-                  <td className="px-4 py-2.5 text-right text-zinc-300">{l.operation_count}</td>
-                  <td className="px-4 py-2.5 text-right text-zinc-300">{l.tx_count}</td>
-                  <td className="px-4 py-2.5 text-right text-red-400/60">{l.failed_tx_count}</td>
-                  <td className="px-4 py-2.5 text-zinc-600">{l.hash?.slice(0, 12)}…</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {cursor && (
-        <div className="px-4 py-3 border-t border-zinc-800/40 flex justify-center">
-          <button
-            onClick={() => fetchLedgers(cursor)}
-            className="px-4 py-1.5 text-xs font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-full hover:text-white hover:bg-zinc-800 transition-colors"
-          >
-            Load More
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Tab Content: Operations ── */
 export function OperationsTab({ backendUrl }: PaginatedTableProps) {
   const [ops, setOps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,8 +74,8 @@ export function OperationsTab({ backendUrl }: PaginatedTableProps) {
 
   useEffect(() => { fetchOps(); }, [backendUrl]);
 
-  const filteredOps = filterType === "all" ? ops : ops.filter((o) => o.type === filterType);
-  const opTypes = [...new Set(ops.map((o) => o.type))];
+  const filteredOps = filterType === "all" ? ops : ops.filter((o) => o.ferruleType === filterType);
+  const opTypes = [...new Set(ops.map((o) => o.ferruleType))].filter(Boolean) as string[];
 
   return (
     <div className="rounded-xl border border-zinc-800/60 bg-zinc-950/80 overflow-hidden">
@@ -192,7 +113,7 @@ export function OperationsTab({ backendUrl }: PaginatedTableProps) {
             <tr className="text-zinc-600 text-left text-[9px] uppercase tracking-wider border-b border-zinc-800/40">
               <th className="px-4 py-3 font-medium">Type</th>
               <th className="px-4 py-3 font-medium">Time</th>
-              <th className="px-4 py-3 font-medium">Amount</th>
+              <th className="px-4 py-3 font-medium">Detail</th>
               <th className="px-4 py-3 font-medium">TX Hash</th>
             </tr>
           </thead>
@@ -212,13 +133,20 @@ export function OperationsTab({ backendUrl }: PaginatedTableProps) {
                   className="border-b border-zinc-800/20 last:border-0 hover:bg-zinc-900/40 transition-colors"
                 >
                   <td className="px-4 py-2.5">
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-zinc-800 text-zinc-300">
-                      {op.type}
+                    <span
+                      className={`px-2 py-0.5 rounded-full font-mono font-semibold text-[9px] border ${
+                        TYPE_BADGE[op.ferruleType]?.color || "text-zinc-400"
+                      } ${TYPE_BADGE[op.ferruleType]?.bg || "bg-zinc-800"} ${
+                        TYPE_BADGE[op.ferruleType]?.border || "border-zinc-700"
+                      }`}
+                    >
+                      {op.ferruleType || op.type}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-zinc-400">{new Date(op.created_at).toLocaleTimeString()}</td>
-                  <td className="px-4 py-2.5 text-zinc-300">
-                    {op.amount ? `${op.amount} ${op.asset_code || ""}` : "—"}
+                  <td className="px-4 py-2.5">
+                    <div className="text-zinc-300 font-medium">{op.ferruleLabel || "—"}</div>
+                    <div className="text-[10px] text-zinc-500">{op.ferruleDetail || "—"}</div>
                   </td>
                   <td className="px-4 py-2.5">
                     <a
