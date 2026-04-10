@@ -17,7 +17,14 @@ export async function getMandate(userId) {
   try {
     const simRes = await rpcServer.simulateTransaction(builder.setTimeout(30).build());
     if (simRes.result && simRes.result.retval) {
-       const map = simRes.result.retval.obj()?.map();
+       // get_mandate returns Option<Mandate> — when None, retval has no .obj()
+       let map;
+       try {
+         map = simRes.result.retval.obj()?.map();
+       } catch {
+         // None / void response — no mandate exists for this user
+         return null;
+       }
        if (!map) return null;
        
        let maxBudget = 0;
