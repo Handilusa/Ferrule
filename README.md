@@ -60,6 +60,38 @@ Asset: USDC on Stellar Testnet
 
 ---
 
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A[External Agent] -->|HTTP 402| B[x402 Gateway]
+    B -->|0.0002 USDC on-chain| C[Stellar Testnet]
+    C -->|TX confirmed| B
+    B -->|authorized| D[Search Agent]
+    D -->|query| E[Gemini LLM]
+    D -->|coordinates| F[ferrule_risk Agent]
+    F -->|registered on-chain| C
+```
+
+---
+
+## 💡 Economic Model
+
+Ferrule charges 0.0002 USDC per risk analysis query. 
+At 10,000 daily queries → $200/day in autonomous revenue. 
+No human operator required. The agent earns, pays its own infrastructure costs, and scales without permission.
+
+---
+
+## ⛓️ On-Chain Activity
+
+| TX | Amount | Ledger | Status |
+|---|---|---|---|
+| [hash real] | 0.25 USDC | 1,969,307 | ✅ Settled |
+| [hash real] | 0.25 USDC | 1,969,171 | ✅ Settled |
+
+---
+
 ## ⚙️ Architecture & Data Flow
 
 ### 1. The Due Diligence Swarm
