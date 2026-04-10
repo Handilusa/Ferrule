@@ -73,6 +73,9 @@ async function x402Gate(req, res, next) {
       ? JSON.parse(paymentHeader)
       : paymentHeader;
 
+    // Wait 6 seconds for optimal Horizon node propagation (Testnet cluster desync protection)
+    await new Promise(r => setTimeout(r, 6000));
+
     const verifyResult = await facilitator.verify(payload, reqs);
 
     if (!verifyResult.valid) {
