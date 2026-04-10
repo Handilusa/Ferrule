@@ -8,7 +8,7 @@ export async function getMandate(userId) {
   
   const contract = new Contract(contractId);
   const builder = new TransactionBuilder(
-    new Keypair.random().publicKey(),
+    Keypair.random().publicKey(),
     { fee: "100", networkPassphrase: Networks.TESTNET }
   ).addOperation(contract.call("get_mandate", xdr.ScVal.scvString(userId)));
 
