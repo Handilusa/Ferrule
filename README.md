@@ -4,11 +4,15 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 ![Soroban](https://img.shields.io/badge/contracts-Soroban-blueviolet)
 
-# Ferrule — Due Diligence Desk for SaaS B2B
+<div align="center">
 
 <img src="./Ferrule-Bot-Icon.svg" width="120" alt="Ferrule Logo" />
 
+# Ferrule — Due Diligence Desk for SaaS B2B
+
 > **Autonomous Tech & Risk Evaluation. Paid per report via x402/MPP. Anchored on Stellar.**
+
+</div>
 
 **Ferrule uses x402 and MPP Session to enable autonomous agent-to-agent payments on Stellar, with every market analysis request settled as a real on-chain transaction in USDC.**
 
