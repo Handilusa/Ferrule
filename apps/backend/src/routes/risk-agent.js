@@ -76,7 +76,12 @@ router.post("/", async (req, res) => {
          const submitRes = await horizon.submitTransaction(tx);
          paymentTxId = submitRes.hash;
          
-         reqHeaders["X-Payment"] = JSON.stringify({ x402Version: 1, transaction: paymentTxId });
+         reqHeaders["X-Payment"] = JSON.stringify({ 
+             x402Version: 1, 
+             scheme: "exact",
+             network: "stellar-testnet",
+             payload: { transaction: paymentTxId } 
+         });
       }
 
       if (wss && sessionId) {

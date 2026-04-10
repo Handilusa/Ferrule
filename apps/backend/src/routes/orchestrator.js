@@ -356,7 +356,9 @@ Return ONLY the JSON object.`;
          if (paymentTxId) {
            reqHeaders["X-Payment"] = JSON.stringify({ 
              x402Version: 1, 
-             transaction: paymentTxId 
+             scheme: "exact",
+             network: "stellar-testnet",
+             payload: { transaction: paymentTxId } 
            });
          }
       }
