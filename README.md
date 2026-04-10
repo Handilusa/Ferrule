@@ -41,6 +41,25 @@ The console autonomously queries the Stellar Testnet, extracts the anchored hash
 
 ---
 
+## 🔓 Open Agent Infrastructure
+
+Any x402-compatible agent can access Ferrule services permissionlessly:
+
+```bash
+curl http://your-server/api/search
+# → HTTP 402 Payment Required
+# → X-Payment: {"version":"1","scheme":"exact","network":"stellar-testnet",...}
+```
+
+No API keys. No registration. Pay 0.0002 USDC on-chain → get the service.
+Compatible with any agent implementing the x402 standard.
+```text
+Wallet: GDIKAJRBIMNKZ4KXAWXVB3H35BO3GWEA4K765M46RQTEMLGRDRSIO6XI
+Asset: USDC on Stellar Testnet
+```
+
+---
+
 ## ⚙️ Architecture & Data Flow
 
 ### 1. The Due Diligence Swarm
