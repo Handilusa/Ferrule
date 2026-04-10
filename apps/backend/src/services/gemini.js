@@ -80,6 +80,18 @@ export function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
+export function sanitizeGeminiOutput(text) {
+  if (!text) return text;
+  return text
+    .replace(/,{2,}/g, '')
+    .replace(/`{2,}/g, '')
+    .replace(/\s`\./g, '.')
+    .replace(/\s`,/g, ',')
+    .replace(/  +/g, ' ')
+    .replace(/\$0\.0₄(\d+)/g, (_, n) => `$0.0000${n}`)
+    .replace(/\$0\.0₃(\d+)/g, (_, n) => `$0.000${n}`);
+}
+
 /**
  * Stream LLM response, calling onBatch every ~100 tokens.
  * @param {string} prompt - The user prompt
@@ -95,7 +107,7 @@ ROLE: You are a paid research analyst. The user has authorized a blockchain micr
 CRITICAL INSTRUCTIONS:
 1. ALWAYS reply in the SAME LANGUAGE as the USER QUERY. If they write in Spanish, your ENTIRE response must be in Spanish.
 2. ALWAYS produce a structured DUE DILIGENCE report, regardless of query complexity.
-3. ALWAYS cite sources using [1], [2], [3] notation referencing the SEARCH CONTEXT entries.
+3. IMPORTANTE: No uses referencias numéricas, citas inline, backticks ni marcadores de fuente en tu respuesta. Escribe el texto directamente sin [1], [2], comas múltiples ni backticks como separadores.
 4. ALWAYS end with a "## Recommended Next Investigations" section suggesting 3 follow-up research missions the user could run.
 
 REPORT STRUCTURE:
@@ -161,7 +173,7 @@ If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, an
         if (tokenBuffer >= 100) {
           batchCount++;
           if (onBatch) {
-            onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
+            onBatch(tokenBuffer, sanitizeGeminiOutput(textBuffer), totalTokens, batchCount);
           }
           tokenBuffer = 0;
           textBuffer = "";
@@ -172,11 +184,11 @@ If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, an
       if (tokenBuffer > 0) {
         batchCount++;
         if (onBatch) {
-          onBatch(tokenBuffer, textBuffer, totalTokens, batchCount);
+          onBatch(tokenBuffer, sanitizeGeminiOutput(textBuffer), totalTokens, batchCount);
         }
       }
 
-      return { fullText, totalTokens, batchCount };
+      return { fullText: sanitizeGeminiOutput(fullText), totalTokens, batchCount };
     } catch (error) {
       console.error(`[Gemini API] Attempt ${attempts}/${maxRetries} failed:`, error.message);
       
