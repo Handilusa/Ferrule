@@ -147,7 +147,7 @@ Ferrule implements **AP2-style mandates** on Stellar — the user defines spendi
 The user controls mandates through abstract checkboxes in the Mission UI (e.g., "Official Docs", "GitHub", "Security DBs"), which internally map to real domain patterns written to Soroban as CSV strings.
 
 **Contract:** `contracts/risk-mandates/src/lib.rs`  
-**Verified Build Hash:** [`3ca8360df3d87e1bd00defb076f81590ed96904e8fe0d53712345055bad0c0c2`](https://stellar.expert/explorer/testnet/contract/CAN7Z2DSHSKHH54QMX33SKSRURHVNSKDE62ANSBH55WH43MEJ5BRO3IC)
+**Verified Build Hash:** [`ce3cd8dccf15d49ceb7b8334ca76150c932c47672b1ece7a3bdeb7cad994df89`](https://stellar.expert/explorer/testnet/contract/CCJHLEW6ZDXLVJZXIWGB3S65SDTUKE5IJFWHRN5AUJ4KEFP47TSEHLFN)
 
 ---
 

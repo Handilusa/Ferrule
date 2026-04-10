@@ -367,6 +367,10 @@ export default function ConsolePage() {
                     <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>
                     Monitor
                 </button>
+                <Link href="/explorer" className="flex items-center gap-2 px-6 py-2 rounded-full text-sm font-mono text-zinc-500 hover:text-zinc-300 transition-colors">
+                    <span className="text-base opacity-70">🔭</span>
+                    Explorer
+                </Link>
             </div>
         </div>
 

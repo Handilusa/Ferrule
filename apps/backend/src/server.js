@@ -16,10 +16,13 @@ import { riskAgentRouter } from "./routes/risk-agent.js";
 import { registryRouter } from "./routes/registry.js";
 import { faucetRouter } from "./routes/faucet.js";
 import { monitorRouter } from "./routes/monitor.js";
+import { explorerRouter } from "./routes/explorer.js";
 import { broadcast } from "./websocket.js";
 import { registerAgent } from "./services/registry.js";
 import { startMonitorCron } from "./services/monitor-cron.js";
 import { initBot, getWebhookHandler } from "./services/telegram.js";
+import { initHorizonStreams } from "./services/horizon-stream.js";
+import { startStatsBroadcast } from "./services/explorer-stats.js";
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3001";
@@ -56,6 +59,7 @@ app.use("/api/risk", riskAgentRouter);
 app.use("/api/registry", registryRouter);
 app.use("/api/faucet", faucetRouter);
 app.use("/api/monitor", monitorRouter);
+app.use("/api/explorer", explorerRouter);
 
 // --- Telegram Webhook (Registered immediately to not block startup) ---
 // getWebhookHandler gracefully handles requests if bot is null during init
@@ -104,6 +108,10 @@ server.listen(PORT, async () => {
   // Initializaciones no bloqueantes
   startMonitorCron();
   initBotWithRetry();
+
+  // Explorer: Horizon streams + stats broadcast
+  initHorizonStreams(wss);
+  startStatsBroadcast(wss);
 
   // Auto-register agents in Soroban background
   if (process.env.REGISTRY_CONTRACT_ID) {

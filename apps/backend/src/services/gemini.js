@@ -232,13 +232,29 @@ export async function fastChatResponse(prompt, systemPrompt) {
         setTimeout(() => reject(new Error("Gemini API timeout — request took longer than 15s")), 15000)
       );
       
-      const requestPromise = llm.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        systemInstruction: systemPrompt,
-      });
+      const requestPromise = (async () => {
+        try {
+          const result = await llm.generateContentStream({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            systemInstruction: systemPrompt,
+          });
+          let text = '';
+          for await (const chunk of result.stream) {
+            text += chunk.text();
+          }
+          return text;
+        } catch (streamErr) {
+          console.warn('[Gemini] Stream failed, falling back to generateContent:', streamErr.message);
+          const result = await llm.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            systemInstruction: systemPrompt,
+          });
+          return result.response.text();
+        }
+      })();
 
       const result = await Promise.race([requestPromise, timeoutPromise]);
-      return result.response.text();
+      return result;
     } catch (err) {
       console.error(`[Gemini] Fast chat attempt ${attempt + 1}/${maxAttempts} error:`, err.message);
       
