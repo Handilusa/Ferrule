@@ -24,7 +24,7 @@ const router = Router();
 const NETWORK = "stellar-testnet";
 const PRICE = "0.0002"; // USDC per query
 const USDC = getTokenBySymbol(NETWORK, "USDC");
-const facilitator = useFacilitator({ url: "https://www.x402.org/facilitator", version: "1" });
+const facilitator = useFacilitator();
 
 function getPaymentRequirements() {
   const receiver = process.env.SEARCH_AGENT_PUBLIC_KEY;
