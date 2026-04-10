@@ -6,6 +6,8 @@
 
 # Ferrule — Due Diligence Desk for SaaS B2B
 
+<img src="./Ferrule-Bot-Icon.svg" width="120" alt="Ferrule Logo" />
+
 > **Autonomous Tech & Risk Evaluation. Paid per report via x402/MPP. Anchored on Stellar.**
 
 **Ferrule uses x402 and MPP Session to enable autonomous agent-to-agent payments on Stellar, with every market analysis request settled as a real on-chain transaction in USDC.**
