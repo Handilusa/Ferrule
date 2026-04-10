@@ -104,13 +104,11 @@ export default function ExplorerPage() {
             {/* Hero Stats */}
             <ExplorerStatsRow stats={explorer.stats} connected={explorer.connected} />
 
-            {/* Ferrule Agent Operations */}
-            <div style={{ minHeight: 340 }}>
+            {/* Two-column: Agent Ops + Agent Leaderboard */}
+            <div className="grid lg:grid-cols-2 gap-4" style={{ minHeight: 340 }}>
               <AgentOpFeed agentOps={explorer.agentOps} />
+              <AgentLeaderboard backendUrl={BACKEND_URL} refreshTrigger={agentRefresh} />
             </div>
-
-            {/* Agent Leaderboard */}
-            <AgentLeaderboard backendUrl={BACKEND_URL} refreshTrigger={agentRefresh} />
 
             {/* Mini Charts */}
             <div className="grid lg:grid-cols-2 gap-4">
