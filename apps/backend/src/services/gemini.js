@@ -146,6 +146,8 @@ CRITICAL INSTRUCTION: You are being paid a premium rate. If the USER QUERY is tr
 If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, and data-driven research report. NEVER be brief. Write as much relevant, high-quality analysis as possible.`;
   let attempts = 0;
   const maxRetries = 3;
+  let rotations = 0;
+  const maxRotations = models.length * 2; // max 2 full rounds of all keys
   
   while (attempts < maxRetries) {
     try {
@@ -192,11 +194,14 @@ If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, an
     } catch (error) {
       console.error(`[Gemini API] Attempt ${attempts}/${maxRetries} failed:`, error.message);
       
-      // If quota error, rotate to backup key immediately
-      if (isQuotaError(error) && models.length > 1) {
+      // If quota error, try rotating key — but with a hard cap
+      if (isQuotaError(error) && models.length > 1 && rotations < maxRotations) {
         rotateKey(error.message);
-        // Don't count quota rotations against retry limit
-        attempts--;
+        rotations++;
+        // Wait 5 seconds before retrying to avoid burning quota instantly
+        console.warn(`[Gemini Pool] Cooldown 5s before retry (rotation ${rotations}/${maxRotations})...`);
+        await new Promise(r => setTimeout(r, 5000));
+        attempts--; // Allow one more attempt with the new key
       }
       
       if (attempts >= maxRetries) {
@@ -272,7 +277,9 @@ export async function fastChatResponse(prompt, systemPrompt) {
       
       if (isQuotaError(err) && models.length > 1) {
         rotateKey(err.message);
-        continue; // Retry immediately with new key
+        // Wait 5s before retrying to avoid burning quota
+        await new Promise(r => setTimeout(r, 5000));
+        continue;
       }
       
       return `⚠️ API Provider Error: ${err.message}`;
@@ -386,9 +393,13 @@ Return ONLY valid JSON.`;
     } catch (error) {
       console.error(`[Risk Agent] Attempt ${attempts}/${maxRetries} error:`, error.message);
       
-      if (isQuotaError(error) && models.length > 1) {
+      if (isQuotaError(error) && models.length > 1 && attempts < maxRetries) {
         rotateKey(error.message);
-        attempts--; // Don't burn a retry on key rotation
+        // Wait 5s before retrying to avoid burning quota
+        await new Promise(r => setTimeout(r, 5000));
+        // Don't count this attempt — but only allow maxRetries total rotations
+      } else {
+        // Non-quota error or all rotations exhausted
       }
       
       if (attempts >= maxRetries) {
