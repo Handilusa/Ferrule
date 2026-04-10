@@ -330,12 +330,26 @@ Return ONLY the JSON object.`;
            })).setTimeout(30).build();
 
          tx.sign(orchestratorKp);
+
+         async function submitWithRetry(tx, maxRetries = 3) {
+           for (let i = 0; i < maxRetries; i++) {
+             try {
+               return await horizon.submitTransaction(tx);
+             } catch (err) {
+               if (err.response?.status === 504 && i < maxRetries - 1) {
+                 console.warn(`[x402] 504 retry ${i + 1}/${maxRetries} in ${(i+1)*2}s`);
+                 await new Promise(r => setTimeout(r, (i + 1) * 2000));
+               } else throw err;
+             }
+           }
+         }
+
          try {
-           const submitRes = await horizon.submitTransaction(tx);
+           const submitRes = await submitWithRetry(tx);
            paymentTxId = submitRes.hash;
          } catch (txErr) {
-           console.warn(`[Orchestrator] Testnet RPC 504 Timeout bypassed to preserve demo flow.`);
-           paymentTxId = null; // search-agent.js allows bypassing if tx is missing in hackathon mode
+           console.warn(`[Orchestrator] Testnet RPC 504 Timeout bypassed after retries. Preserving demo flow.`);
+           paymentTxId = null; // Bypass final if absolutely dead
          }
          
          // Attach payment validation per x402 spec
