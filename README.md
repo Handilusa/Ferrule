@@ -6,7 +6,7 @@
 
 <div align="center">
 
-<img src="./Ferrule-Bot-Icon.png" width="120" alt="Ferrule Logo" />
+<img src="./Ferrule-Bot-Icon.svg" width="120" alt="Ferrule Logo" />
 
 # Ferrule — Due Diligence Desk for SaaS B2B
 
