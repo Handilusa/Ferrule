@@ -22,6 +22,15 @@ Instead of generic LLM web-searches that hallucinate facts or suffer from confir
 
 Every agent action is cryptographically paid for using Stellar micropayments (`x402`), and the final report is immutably anchored on-chain using `manageData` for guaranteed verifiability.
 
+## 🎬 Demo Video
+
+<div align="center">
+  <a href="https://youtu.be/lvfm_IDQ5xM?si=P9uom-uReazFgUJP" target="_blank">
+    <img src="https://img.youtube.com/vi/lvfm_IDQ5xM/maxresdefault.jpg" alt="Watch the Ferrule Demo Video" width="800" />
+  </a>
+  <p><i>(Click the image above to watch the full demo on YouTube)</i></p>
+</div>
+
 ### 🔗 Hackathon Quick Links
 - **Creator (X/Twitter):** [@Cebohia18](https://x.com/Cebohia18)
 - **GitHub Repository:** [Handilusa/Ferrule](https://github.com/Handilusa/Ferrule)

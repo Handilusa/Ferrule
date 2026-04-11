@@ -30,3 +30,6 @@ deploy-contract.js
 download-stellar.js
 test-mpp-flow.js
 setup-wallets.ts
+.build-log.txt
+.github/workflows/
+scripts/demo-recorder/
