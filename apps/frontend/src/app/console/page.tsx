@@ -389,12 +389,12 @@ export default function ConsolePage() {
             </div>
            ) : (
            <div className="grid lg:grid-cols-3 gap-6">
-             <div className="lg:col-span-1 flex flex-col gap-6">
+             <div className="lg:col-span-1">
                 <MonitorSetup backendUrl={BACKEND_URL} onMonitorCreated={() => setMonitorRefresh(r => r + 1)} />
-                <TelegramPool backendUrl={BACKEND_URL} />
              </div>
-             <div className="lg:col-span-2">
+             <div className="lg:col-span-2 flex flex-col gap-6">
                 <MonitorPanel backendUrl={BACKEND_URL} refreshTrigger={monitorRefresh} />
+                <TelegramPool backendUrl={BACKEND_URL} />
              </div>
            </div>
            )
