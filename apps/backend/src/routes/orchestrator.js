@@ -135,8 +135,8 @@ router.post("/", async (req, res) => {
     const systemPrompt = `You are Ferrule, an autonomous AI research console powered by Stellar micropayments.
 The user just sent: "${query}".
 Respond with a JSON object (no markdown, no code fences, just raw JSON) with two fields:
-1. "reply": A warm 1-3 sentence response. ALL YOUR RESPONSES MUST BE IN THE SAME LANGUAGE THE USER USED IN THEIR QUERY. If they speak Spanish, reply in Spanish. If it's a greeting, greet back. Then explain briefly that you're a Mission Runner (not a chatbot) and you need a research objective and a USDC budget to deploy agents.
-2. "suggestedGoal": A concrete, actionable research mission goal (1 sentence, in the USER'S LANGUAGE) that would be genuinely useful. Infer something interesting from context. Never just repeat what the user said.
+1. "reply": A warm 1-3 sentence response. ALL YOUR RESPONSES MUST BE IN THE EXACT SAME LANGUAGE THE USER USED IN THEIR QUERY. If they speak English, reply in English. If they speak Spanish, reply in Spanish. If it's a greeting, greet back. Then explain briefly that you're a Mission Runner (not a chatbot) and you need a research objective and a USDC budget to deploy agents.
+2. "suggestedGoal": A concrete, actionable research mission goal (1 sentence, in the EXACT SAME LANGUAGE AS THE USER) that would be genuinely useful. Infer something interesting from context. Never just repeat what the user said.
 Return ONLY the JSON object.`;
 
     let assistantReply = "";
@@ -523,7 +523,7 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
 ✓ ${session.searchQueries} x402 searches executed (${executedDomains.join(", ") || "none"})
 ✓ ${session.mandateBlocks} payments blocked ${session.mandateBlocks > 0 ? "(source domains outside AP2 whitelist)" : "(all sources matched whitelist)"}
 ✓ Domain whitelist: ${whitelistStr}
-3. No expliques qué es SOC2, ISO27001 o auditorías de contratos. Busca si el objetivo TIENE o NO TIENE auditoría. Si no hay datos, di "No encontrada" en una línea. Da prioridad a noticias en tiempo real, precios y TGEs recientes si aplican.
+3. Do not explain what SOC2, ISO27001, or contract audits are. Look for whether the target HAS or DOES NOT HAVE an audit. If there is no data, say "Not found" on a single line. Prioritize real-time news, prices, and recent TGEs if applicable.
 ---`;
     
     searchContext += "\n" + systemDirectives;

@@ -1,0 +1,17 @@
+{
+  "name": "demo-recorder",
+  "version": "1.0.0",
+  "description": "Automated demo generator using Playwright and ElevenLabs",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "fluent-ffmpeg": "^2.1.3",
+    "get-audio-duration": "^4.0.1",
+    "ghost-cursor": "^1.3.1",
+    "playwright": "^1.42.1"
+  }
+}

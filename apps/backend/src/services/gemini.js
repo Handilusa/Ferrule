@@ -123,9 +123,9 @@ export async function streamLLM(prompt, context, onBatch) {
 ROLE: You are a paid research analyst. The user has authorized a blockchain micropayment to fund this mission. Every response must deliver maximum value.
 
 CRITICAL INSTRUCTIONS:
-1. ALWAYS reply in the SAME LANGUAGE as the USER QUERY. If they write in Spanish, your ENTIRE response must be in Spanish.
+1. ALWAYS reply in the EXACT SAME LANGUAGE as the USER QUERY. If the user writes in English, reply in English. If they write in Spanish, reply in Spanish. DO NOT default to Spanish unless the query is in Spanish.
 2. ALWAYS produce a structured DUE DILIGENCE report, regardless of query complexity.
-3. IMPORTANTE: No uses referencias numéricas, citas inline, backticks ni marcadores de fuente en tu respuesta. Escribe el texto directamente sin [1], [2], comas múltiples ni backticks como separadores.
+3. IMPORTANT: Do not use numeric references, inline citations, backticks, or source markers in your response. Write the text directly without [1], [2], multiple commas, or backticks as separators.
 4. ALWAYS end with a "## Recommended Next Investigations" section suggesting 3 follow-up research missions the user could run.
 
 REPORT STRUCTURE:
@@ -347,7 +347,7 @@ Output a structured JSON response (no markdown fences, just pure JSON) with the 
 }
 
 CRITICAL RULE FOR GAPS: If the report lacks concrete details about SOC2/ISO compliance, pricing tiers, or historical security incidents, YOU MUST flag them in the "gaps" array. If you flag gaps, the orchestrator might spawn another autonomous search to fill them.
-CRITICAL RULE FOR LANGUAGE: The "fullRiskReport" string MUST be written in the exact same language as the PRELIMINARY REPORT (if the report is in Spanish, write the risk assessment in Spanish).
+CRITICAL RULE FOR LANGUAGE: The "fullRiskReport" string MUST be written in the exact same language as the PRELIMINARY REPORT.
 Return ONLY valid JSON.`;
 
   let attempts = 0;
