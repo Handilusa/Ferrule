@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/context/WalletContext";
 import gsap from "gsap";
 
@@ -10,6 +10,26 @@ export function TelegramPool({ backendUrl }: { backendUrl: string }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [telegramLinked, setTelegramLinked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!address) {
+      setTelegramLinked(null);
+      return;
+    }
+    const checkTelegram = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/monitor/telegram-link?wallet=${address}`);
+        const data = await res.json();
+        setTelegramLinked(!!data.linked);
+      } catch (err) {
+        console.error("Failed to check telegram link status", err);
+      }
+    };
+    checkTelegram();
+    const t = setInterval(checkTelegram, 5000);
+    return () => clearInterval(t);
+  }, [address, backendUrl]);
 
   const handleDelegate = async () => {
     if (!address || !kit) return connect();
@@ -98,13 +118,15 @@ export function TelegramPool({ backendUrl }: { backendUrl: string }) {
 
         <button 
           onClick={handleDelegate} 
-          disabled={loading} 
+          disabled={loading || (!!address && telegramLinked === false)} 
           className="w-full h-12 bg-zinc-800 text-white font-medium text-sm rounded-xl hover:bg-blue-600 transition-colors disabled:opacity-50 mt-4 flex justify-center items-center gap-2"
         >
            {loading ? (
              <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Signing...</>
            ) : !address ? (
              <>Connect Wallet</>
+           ) : telegramLinked === false ? (
+             <>Connect Telegram first</>
            ) : (
              <>Delegate {amount.toFixed(2)} USDC</>
            )}
