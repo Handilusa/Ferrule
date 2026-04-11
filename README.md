@@ -26,7 +26,7 @@ Every agent action is cryptographically paid for using Stellar micropayments (`x
 
 <div align="center">
   <a href="https://youtu.be/lvfm_IDQ5xM?si=P9uom-uReazFgUJP" target="_blank">
-    <img src="https://img.youtube.com/vi/lvfm_IDQ5xM/maxresdefault.jpg" alt="Watch the Ferrule Demo Video" width="800" />
+    <img src="https://img.youtube.com/vi/lvfm_IDQ5xM/hqdefault.jpg" alt="Watch the Ferrule Demo Video" width="600" />
   </a>
   <p><i>(Click the image above to watch the full demo on YouTube)</i></p>
 </div>
