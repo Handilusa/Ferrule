@@ -289,10 +289,10 @@ export async function initBot() {
       const args = ctx.match.split(" ").filter(Boolean);
       const token = args[0] || "XLM";
       const pair = token.toUpperCase() + "/USDC";
-      const budget = args.length > 1 ? parseFloat(args[1]) : 0.25;
+      const budget = args.length > 1 ? parseFloat(args[1]) : 0.05;
 
       if (isNaN(budget) || budget <= 0) {
-        return ctx.reply("❌ Invalid budget amount. Example: /analyze XLM 0.25");
+        return ctx.reply("❌ Invalid budget amount. Example: /analyze XLM 0.05");
       }
 
       const balance = getPoolBalance(walletAddress);
@@ -367,7 +367,7 @@ export async function initBot() {
           `• Resistance: $${indicators.resistance?.toFixed(4) || "N/A"}\n` +
           fibLabel +
           `\n💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}\n\n` +
-          `💳 Paid: ${budget} USDC | 🔗 TX: ${txHash}\n🌐 https://stellar.expert/explorer/testnet/tx/${txHash}`;
+          `💳 Paid: ${budget} USDC | 💼 Pool left: ${getPoolBalance(walletAddress).toFixed(2)} USDC | 🔗 TX: ${txHash}\n🌐 https://stellar.expert/explorer/testnet/tx/${txHash}`;
         
         try {
           await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "HTML", disable_web_page_preview: true });
@@ -523,14 +523,14 @@ async function marketReportConversation(conversation, ctx) {
      }
      
      const balance = getPoolBalance(walletAddress);
-     if (balance < 0.25) {
+     if (balance < 0.05) {
         return ctx.reply(`❌ Pool exhausted (${balance.toFixed(2)} USDC). Delegate funds at ferrule.app/console`);
      }
      
-     const msg = await ctx.reply(`⏳ Consuming 0.25 USDC from pool...\nContacting oracle and pulling OHLCV for ${pair}...`);
+     const msg = await ctx.reply(`⏳ Consuming 0.05 USDC from pool...\nContacting oracle and pulling OHLCV for ${pair}...`);
      
      try {
-       const deducted = deductPoolBalance(walletAddress, 0.25);
+       const deducted = deductPoolBalance(walletAddress, 0.05);
        if (!deducted) throw new Error("Could not deduct from pool.");
 
        console.log(`[Snapshot] Fetching OHLCV for ${pair}...`);
@@ -576,7 +576,8 @@ async function marketReportConversation(conversation, ctx) {
       `• Support: $${indicators.support.toFixed(4)}\n` +
       `• Resistance: $${indicators.resistance.toFixed(4)}\n` +
       fibLabel +
-      `\n💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}`;
+      `\n💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}\n\n` +
+      `💳 Paid: 0.05 USDC | 💼 Pool left: ${getPoolBalance(walletAddress).toFixed(2)} USDC`;
        
        try {
          await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "HTML" });
