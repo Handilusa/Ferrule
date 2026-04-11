@@ -16,3 +16,17 @@ stellar-hello-world/
 .cargo/
 .rustup/
 .stellar_cli_temp/
+
+# Temporales y scripts de desarrollo local
+build-log*.txt
+output*.txt
+channel.rs
+factory.rs
+rustup-init.exe
+stellar-cli.zip
+e2e-result.json
+usdc-sac.txt
+deploy-contract.js
+download-stellar.js
+test-mpp-flow.js
+setup-wallets.ts

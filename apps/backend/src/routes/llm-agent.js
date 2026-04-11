@@ -146,7 +146,7 @@ router.get("/health", (_req, res) => {
   res.json({
     agent: "llm",
     paymentMethod: mppx ? "mpp-channel" : "open",
-    model: "gemini-2.0-flash-lite",
+    model: "gemini-2.5-flash-lite",
     pricePerBatch: "0.00001 USDC / 100 tokens",
   });
 });

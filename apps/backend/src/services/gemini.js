@@ -10,43 +10,61 @@ const SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-const MODEL_NAME = "gemini-2.0-flash";
+const MODEL_NAME = "gemini-2.5-flash-lite";
 
 // Pool state
 let apiKeys = [];
 let models = [];       // cached model per key
 let currentKeyIndex = 0;
 let poolInitialized = false;
+let initPoolPromise = null;
 
-function initPool() {
+async function initPool() {
   if (poolInitialized) return;
 
   // Collect all keys: GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, ...
   const primary = process.env.GEMINI_API_KEY;
-  if (primary) apiKeys.push(primary);
+  const tempKeys = [];
+  if (primary) tempKeys.push(primary);
 
   for (let i = 2; i <= 10; i++) {
     const key = process.env[`GEMINI_API_KEY_${i}`];
-    if (key) apiKeys.push(key);
+    if (key) tempKeys.push(key);
   }
 
-  if (apiKeys.length === 0) {
+  if (tempKeys.length === 0) {
     throw new Error("No GEMINI_API_KEY found. Set GEMINI_API_KEY (and optionally GEMINI_API_KEY_2, _3...) in env.");
   }
 
-  // Pre-build a model instance per key
-  models = apiKeys.map((key, idx) => {
+  // Validate keys before adding to pool
+  for (let i = 0; i < tempKeys.length; i++) {
+    const key = tempKeys[i];
     const genAI = new GoogleGenerativeAI(key);
-    console.log(`[Gemini Pool] Key #${idx + 1} loaded (${key.slice(0, 6)}...${key.slice(-4)})`);
-    return genAI.getGenerativeModel({ model: MODEL_NAME, safetySettings: SAFETY_SETTINGS });
-  });
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME, safetySettings: SAFETY_SETTINGS });
+    
+    try {
+      await model.generateContent("ok");
+      apiKeys.push(key);
+      models.push(model);
+      console.log(`[Gemini Pool] Key #${apiKeys.length} loaded (${key.slice(0, 6)}...${key.slice(-4)})`);
+    } catch (err) {
+      console.log(`[Gemini Pool] Key #${i + 1} INVALID - skipped`);
+    }
+  }
+
+  if (models.length === 0) {
+    throw new Error("No valid GEMINI_API_KEYs found after validation.");
+  }
 
   console.log(`[Gemini Pool] ${apiKeys.length} key(s) in rotation pool.`);
   poolInitialized = true;
 }
 
-function getModel() {
-  initPool();
+async function getModel() {
+  if (!poolInitialized) {
+    if (!initPoolPromise) initPoolPromise = initPool();
+    await initPoolPromise;
+  }
   return models[currentKeyIndex];
 }
 
@@ -146,13 +164,18 @@ CRITICAL INSTRUCTION: You are being paid a premium rate. If the USER QUERY is tr
 If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, and data-driven research report. NEVER be brief. Write as much relevant, high-quality analysis as possible.`;
   let attempts = 0;
   const maxRetries = 3;
-  let rotations = 0;
-  const maxRotations = models.length * 2; // max 2 full rounds of all keys
   
   while (attempts < maxRetries) {
     try {
       attempts++;
-      const llm = getModel();
+      const llm = await getModel();
+      
+      if (attempts === 1) {
+        console.log(`[Gemini Pool] Attempt ${attempts}/${maxRetries} - Key #${currentKeyIndex + 1} (${MODEL_NAME})`);
+      } else {
+        console.log(`[Gemini Pool] Attempt ${attempts}/${maxRetries} - Key #${currentKeyIndex + 1} (rotating)`);
+      }
+      
       const result = await llm.generateContentStream(systemPrompt);
 
       let fullText = "";
@@ -192,34 +215,14 @@ If the query IS serious, deliver a MASSIVE, extremely verbose, comprehensive, an
 
       return { fullText: sanitizeGeminiOutput(fullText), totalTokens, batchCount };
     } catch (error) {
-      console.error(`[Gemini API] Attempt ${attempts}/${maxRetries} failed:`, error.message);
-      
-      // If quota error, try rotating key — but with a hard cap
-      if (isQuotaError(error) && models.length > 1 && rotations < maxRotations) {
+      if (isQuotaError(error) && models.length > 1) {
         rotateKey(error.message);
-        rotations++;
-        // Wait 5 seconds before retrying to avoid burning quota instantly
-        console.warn(`[Gemini Pool] Cooldown 5s before retry (rotation ${rotations}/${maxRotations})...`);
-        await new Promise(r => setTimeout(r, 5000));
-        attempts--; // Allow one more attempt with the new key
       }
       
       if (attempts >= maxRetries) {
-        console.warn("[Gemini API] Exceeded max retries across all keys. Engaging bypass fallback.");
+        console.warn("[Gemini Pool] All 3 attempts failed - returning fallback");
         
-        const mockReport = `## Executive Summary
-(Fallback Mode) The LLM provider (Google Gemini) rejected the request.
-
-## Error Diagnosis
-The Gemini server threw exactly this error:
-\`${error.message}\`
-
-## Key Findings
-- Your blockchain backend and payment pipeline is perfectly functional.
-- The issue is entirely isolated to the API Provider connection or parameters.
-
-## Recommended Next Investigations
-Check the API Key, the model limits, or read the error above to patch it.`;
+        const mockReport = "AI analysis temporarily unavailable - market data ready";
         
         for (let i = 1; i <= 4; i++) {
           await new Promise(r => setTimeout(r, 200));
@@ -239,11 +242,19 @@ Check the API Key, the model limits, or read the error above to patch it.`;
  * Supports key rotation on quota errors.
  */
 export async function fastChatResponse(prompt, systemPrompt) {
-  const maxAttempts = models.length > 1 ? models.length + 1 : 2;
+  let attempts = 0;
+  const maxRetries = 3;
   
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  while (attempts < maxRetries) {
     try {
-      const llm = getModel();
+      attempts++;
+      const llm = await getModel();
+      
+      if (attempts === 1) {
+        console.log(`[Gemini Pool] Attempt ${attempts}/${maxRetries} - Key #${currentKeyIndex + 1} (${MODEL_NAME})`);
+      } else {
+        console.log(`[Gemini Pool] Attempt ${attempts}/${maxRetries} - Key #${currentKeyIndex + 1} (rotating)`);
+      }
       
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Gemini API timeout — request took longer than 15s")), 15000)
@@ -273,19 +284,18 @@ export async function fastChatResponse(prompt, systemPrompt) {
       const result = await Promise.race([requestPromise, timeoutPromise]);
       return result;
     } catch (err) {
-      console.error(`[Gemini] Fast chat attempt ${attempt + 1}/${maxAttempts} error:`, err.message);
-      
       if (isQuotaError(err) && models.length > 1) {
         rotateKey(err.message);
-        // Wait 5s before retrying to avoid burning quota
-        await new Promise(r => setTimeout(r, 5000));
-        continue;
       }
       
-      return `⚠️ API Provider Error: ${err.message}`;
+      if (attempts >= maxRetries) {
+        console.warn("[Gemini Pool] All 3 attempts failed - returning fallback");
+        return "AI analysis temporarily unavailable - market data ready";
+      }
+      
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
-  return `⚠️ **AI Provider Temporary Saturation**\nWe couldn't process the request because the artificial intelligence servers (Gemini) are temporarily saturated or out of available quota. \n\n*Please try again in a few moments.*`;
 }
 
 /**
@@ -341,12 +351,19 @@ CRITICAL RULE FOR LANGUAGE: The "fullRiskReport" string MUST be written in the e
 Return ONLY valid JSON.`;
 
   let attempts = 0;
-  const maxRetries = 2;
+  const maxRetries = 3;
   
   while (attempts < maxRetries) {
     try {
       attempts++;
-      const llm = getModel();
+      const llm = await getModel();
+      
+      if (attempts === 1) {
+        console.log(`[Gemini Pool] Attempt ${attempts}/${maxRetries} - Key #${currentKeyIndex + 1} (${MODEL_NAME})`);
+      } else {
+        console.log(`[Gemini Pool] Attempt ${attempts}/${maxRetries} - Key #${currentKeyIndex + 1} (rotating)`);
+      }
+      
       const result = await llm.generateContentStream(systemPrompt);
 
       let fullText = "";
@@ -391,26 +408,20 @@ Return ONLY valid JSON.`;
       }
 
     } catch (error) {
-      console.error(`[Risk Agent] Attempt ${attempts}/${maxRetries} error:`, error.message);
-      
-      if (isQuotaError(error) && models.length > 1 && attempts < maxRetries) {
+      if (isQuotaError(error) && models.length > 1) {
         rotateKey(error.message);
-        // Wait 5s before retrying to avoid burning quota
-        await new Promise(r => setTimeout(r, 5000));
-        // Don't count this attempt — but only allow maxRetries total rotations
-      } else {
-        // Non-quota error or all rotations exhausted
       }
       
       if (attempts >= maxRetries) {
+        console.warn("[Gemini Pool] All 3 attempts failed - returning fallback");
         return {
           riskScore: 50,
           riskBreakdown: { security: 5, lockIn: 5, pricing: 5, dependency: 5, maturity: 5 },
           gaps: [],
-          fullRiskReport: "**Risk Analysis Failed**: Could not reach LLM provider."
+          fullRiskReport: "AI analysis temporarily unavailable - market data ready"
         };
       }
-      await new Promise(r => setTimeout(r, 4000));
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
 }
