@@ -103,6 +103,8 @@ export function TelegramPool({ backendUrl }: { backendUrl: string }) {
         >
            {loading ? (
              <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Signing...</>
+           ) : !address ? (
+             <>Connect Wallet</>
            ) : (
              <>Delegate {amount.toFixed(2)} USDC</>
            )}
