@@ -82,6 +82,13 @@ async function x402Gate(req, res, next) {
       return next();
     }
 
+    // Real TX already submitted & confirmed by orchestrator via Horizon — skip redundant facilitator verify
+    if (txId && /^[a-f0-9]{64}$/i.test(txId)) {
+      console.log(`[Search Agent] Real TX ${txId.slice(0,8)}... already settled on-chain, skipping facilitator verify`);
+      req.x402 = { settled: true, txHash: txId, amount: PRICE };
+      return next();
+    }
+
     // Wait 6 seconds for optimal Horizon node propagation (Testnet cluster desync protection)
     await new Promise(r => setTimeout(r, 6000));
 

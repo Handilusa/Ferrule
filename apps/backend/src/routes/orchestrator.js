@@ -799,10 +799,10 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
     // Agent Registry SLA Reporting 
     addTimelineEvent(session, wss, "registry_update", "Broadcasting mission success metrics to Agent Registry...");
     const finalSuccess = session.successStatus;
-    await recordMission("ferrule.search", finalSuccess);
-    await recordMission("ferrule.llm", finalSuccess);
+    await recordMission("ferrule_search", finalSuccess);
+    await recordMission("ferrule_llm", finalSuccess);
     if (session.riskSearches > 0) {
-       await recordMission("ferrule.risk", finalSuccess);
+       await recordMission("ferrule_risk", finalSuccess);
     }
 
     res.json({

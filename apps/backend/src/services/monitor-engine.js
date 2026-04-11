@@ -121,7 +121,7 @@ export async function runMonitorCycle(monitor) {
       monitor.history.push({ ts: Date.now(), signal: primarySignal.type, analysis });
 
       // 7. Record Mission
-      await recordMission("ferrule.quant", true); 
+      await recordMission("ferrule_quant", true); 
     } else {
         console.log(`[Monitor ${monitor.id}] Layer 1 triage skipped Deep Analysis.`);
         monitor.history.push({ ts: Date.now(), signal: "NO_SIGNAL", triage: responseL1 });
