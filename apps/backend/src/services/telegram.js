@@ -279,6 +279,100 @@ export async function initBot() {
       return showMainMenu(ctx);
     });
 
+    bot.command("analyze", async (ctx) => {
+      const walletAddress = users.get(ctx.from.id);
+      if (!walletAddress) {
+        return ctx.reply("❌ You are not linked to any account. Please link your wallet first.");
+      }
+
+      const args = ctx.match.split(" ").filter(Boolean);
+      const token = args[0] || "XLM";
+      const pair = token.toUpperCase() + "/USDC";
+      const budget = args.length > 1 ? parseFloat(args[1]) : 0.25;
+
+      if (isNaN(budget) || budget <= 0) {
+        return ctx.reply("❌ Invalid budget amount. Example: /analyze XLM 0.25");
+      }
+
+      const msg = await ctx.reply(`⏳ Initiating ${budget} USDC payment for ${pair} analysis...`);
+
+      try {
+        const { Keypair, Asset, TransactionBuilder, Networks, Horizon, Operation } = await import("@stellar/stellar-sdk");
+        
+        const orchestratorSecret = process.env.ORCHESTRATOR_SECRET || process.env.ORCHESTRATOR_PRIVATE_KEY;
+        if (!orchestratorSecret) throw new Error("Orchestrator wallet missing");
+
+        const orchestratorKp = Keypair.fromSecret(orchestratorSecret);
+        const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+        const account = await horizon.loadAccount(orchestratorKp.publicKey());
+        
+        const usdcAsset = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
+        const destination = process.env.PLATFORM_WALLET_ADDRESS || process.env.SEARCH_AGENT_PUBLIC_KEY;
+        if (!destination) throw new Error("Destination wallet missing");
+
+        const tx = new TransactionBuilder(account, { fee: "1000", networkPassphrase: Networks.TESTNET })
+          .addOperation(Operation.payment({
+            destination: destination,
+            asset: usdcAsset,
+            amount: budget.toString()
+          })).setTimeout(30).build();
+
+        tx.sign(orchestratorKp);
+        const submitRes = await horizon.submitTransaction(tx);
+        const txHash = submitRes.hash;
+
+        await ctx.api.editMessageText(msg.chat.id, msg.message_id, `✅ Payment of ${budget} USDC confirmed (tx: ${txHash.slice(0, 8)}...)\n\n📸 Generating snapshot for ${pair}...`);
+        
+        const priceData = await getPriceData(pair);
+        const indicators = computeIndicators(priceData.ohlcv);
+        const quantPrompt = buildMarketPrompt(pair, priceData, indicators, []);
+
+        const analysis = await streamRiskAnalysis(quantPrompt, "", null, "mode: trading_monitor");
+
+        const cleanReport = (text) => {
+          if (!text) return "";
+          return text
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+              .replace(/__(.*?)__/g, '<u>$1</u>')
+              .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
+              .replace(/`([^`]+)`/g, '<code>$1</code>');
+        };
+
+        const fibs = indicators.fibs || [];
+        const fibLabel = fibs.length ? `• Fibs 38.2%: $${fibs[1].toFixed(2)} | 61.8%: $${fibs[3].toFixed(2)}\n` : '';
+
+        let finalMsg = `📊 <b>Ferrule Market — ${pair}</b>\n` +
+          `📅 ${new Date().toUTCString()}\n\n` +
+          `💲 Price: <code>$${priceData.current.price}</code> | ${priceData.current.change24h.toFixed(2)}% 24h\n\n` +
+          `📈 <b>INDICATORS</b>\n` +
+          `• RSI (14): ${indicators.rsi.toFixed(1)} ${rsiSignal(indicators.rsi)}\n` +
+          `• EMA 9/21: $${indicators.ema9.toFixed(4)} / $${indicators.ema21.toFixed(4)} (${indicators.trend})\n` +
+          `• MACD: Hist ${indicators.macd.hist?.toFixed(2) || "N/A"} (${indicators.macd.label})\n` +
+          `• OBV: ${indicators.obv?.label || "N/A"}\n` +
+          `• ADX (14): ${indicators.adx?.value?.toFixed(1) || "N/A"} (${indicators.adx?.label || "N/A"})\n` +
+          `• ATR (14): $${indicators.atr?.toFixed(4) || "N/A"} → volatility ${indicators.atr && priceData.current.price ? ((indicators.atr / priceData.current.price)*100).toFixed(2) : "N/A"}%\n` +
+          `• Support: $${indicators.support?.toFixed(4) || "N/A"}\n` +
+          `• Resistance: $${indicators.resistance?.toFixed(4) || "N/A"}\n` +
+          fibLabel +
+          `\n💡 <b>AI ANALYSIS</b>: \n${cleanReport(analysis.fullRiskReport)}\n\n` +
+          `💳 Paid: ${budget} USDC | 🔗 TX: ${txHash}\n🌐 https://stellar.expert/explorer/testnet/tx/${txHash}`;
+        
+        try {
+          await ctx.api.editMessageText(msg.chat.id, msg.message_id, finalMsg, { parse_mode: "HTML", disable_web_page_preview: true });
+        } catch (formatErr) {
+          const strippedMsg = finalMsg.replace(/<[^>]*>?/gm, '');
+          await ctx.api.editMessageText(msg.chat.id, msg.message_id, "⚠️ <i>Format disabled</i>\n\n" + strippedMsg, { parse_mode: "HTML", disable_web_page_preview: true });
+        }
+
+      } catch (err) {
+        console.error("[Analyze Command Error]", err);
+        await ctx.api.editMessageText(msg.chat.id, msg.message_id, "❌ Payment failed. Fund your wallet at https://faucet.circle.com");
+      }
+    });
+
     // Use webhook mode for production (Render), polling for local dev
     const isRender = process.env.RENDER === "true" || process.env.NODE_ENV === "production" || process.env.RENDER_EXTERNAL_URL !== undefined;
     const webhookBase = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL || (isRender ? "https://ferrule-backend.onrender.com" : null);
