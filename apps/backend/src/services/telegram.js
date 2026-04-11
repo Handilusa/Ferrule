@@ -307,12 +307,13 @@ export async function initBot() {
         if (!deducted) throw new Error("Could not deduct from pool logically");
 
         const { Keypair, Asset, TransactionBuilder, Networks, Horizon, Operation } = await import("@stellar/stellar-sdk");
+        const { getHorizon, submitWithFallback } = await import("./stellar-rpc.js");
         
         const orchestratorSecret = process.env.ORCHESTRATOR_SECRET || process.env.ORCHESTRATOR_PRIVATE_KEY;
         if (!orchestratorSecret) throw new Error("Orchestrator wallet missing");
 
         const orchestratorKp = Keypair.fromSecret(orchestratorSecret);
-        const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+        const horizon = getHorizon();
         const account = await horizon.loadAccount(orchestratorKp.publicKey());
         
         const usdcAsset = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
@@ -327,7 +328,7 @@ export async function initBot() {
           })).setTimeout(30).build();
 
         tx.sign(orchestratorKp);
-        const submitRes = await horizon.submitTransaction(tx);
+        const submitRes = await submitWithFallback(tx);
         const txHash = submitRes.hash;
 
         await ctx.api.editMessageText(msg.chat.id, msg.message_id, `✅ Payment of ${budget} USDC confirmed (tx: ${txHash.slice(0, 8)}...)\n\n📸 Generating snapshot for ${pair}...`);

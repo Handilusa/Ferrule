@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { streamRiskAnalysis } from "../services/gemini.js";
 import { Keypair, Asset, TransactionBuilder, Networks, Horizon, Operation } from "@stellar/stellar-sdk";
+import { getHorizon, submitWithFallback } from "../services/stellar-rpc.js";
 
 const router = Router();
 
@@ -61,7 +62,7 @@ router.post("/", async (req, res) => {
          if (!riskSecret) throw new Error("Missing RISK_AGENT_PRIVATE_KEY");
          const riskKp = Keypair.fromSecret(riskSecret);
          
-         const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+         const horizon = getHorizon();
          const account = await horizon.loadAccount(riskKp.publicKey());
          const usdcAsset = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
          
@@ -73,7 +74,7 @@ router.post("/", async (req, res) => {
            })).setTimeout(30).build();
 
          tx.sign(riskKp);
-         const submitRes = await horizon.submitTransaction(tx);
+         const submitRes = await submitWithFallback(tx);
          paymentTxId = submitRes.hash;
          
          reqHeaders["X-Payment"] = JSON.stringify({ 

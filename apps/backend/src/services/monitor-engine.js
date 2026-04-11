@@ -5,6 +5,7 @@ import { recordMission } from "./registry.js";
 import { getPriceData } from "./price-feed.js";
 import { computeIndicators, buildMarketPrompt, detectSignal } from "./technical-analysis.js";
 import { Keypair, Asset, TransactionBuilder, Networks, Horizon, Operation } from "@stellar/stellar-sdk";
+import { getHorizon, submitWithFallback } from "./stellar-rpc.js";
 
 // Helper for backend URL
 const backendUrl = () => `http://localhost:${process.env.PORT || 3000}`;
@@ -35,7 +36,7 @@ export async function runMonitorCycle(monitor) {
     // 2. x402 Search
     const orchestratorSecret = process.env.ORCHESTRATOR_PRIVATE_KEY;
     const orchestratorKp = Keypair.fromSecret(orchestratorSecret);
-    const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+    const horizon = getHorizon();
     const account = await horizon.loadAccount(orchestratorKp.publicKey());
     
     const usdcAsset = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
@@ -49,7 +50,7 @@ export async function runMonitorCycle(monitor) {
       })).setTimeout(30).build();
 
     tx.sign(orchestratorKp);
-    const submitRes = await horizon.submitTransaction(tx);
+    const submitRes = await submitWithFallback(tx);
     const paymentTxId = submitRes.hash;
 
     const resSearch = await fetch(`${backendUrl()}/api/search`, {

@@ -8,6 +8,7 @@ import { recordMission } from "../services/registry.js";
 import { loadWallets, logWallets } from "../wallet.js";
 import { openChannelOnChain, closeChannelOnChain, signMicropayment, publicKeyFromSecret } from "../channels.js";
 import { Asset, TransactionBuilder, Networks, Horizon, Keypair, Operation } from "@stellar/stellar-sdk";
+import { getHorizon, submitWithFallback } from "../services/stellar-rpc.js";
 /**
  * Orchestrator Router — coordinates the research pipeline
  *
@@ -32,7 +33,7 @@ router.post("/preauth", async (req, res) => {
   if (!funderPublicKey) return res.status(400).json({ error: "Missing funderPublicKey" });
 
   try {
-    const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+    const horizon = getHorizon();
     const account = await horizon.loadAccount(funderPublicKey);
     
     // The budget is passed, or default to 0.05
@@ -75,7 +76,7 @@ router.post("/telegram/delegate", async (req, res) => {
   }
 
   try {
-    const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+    const horizon = getHorizon();
     const txInfo = await horizon.transactions().transaction(txHash).call();
     
     if (!txInfo.successful) {
@@ -211,9 +212,9 @@ Return ONLY the JSON object.`;
     }
 
     // 1. Submit User's USDC Payment natively via Horizon (no smart contract return value to parse)
-    const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+    const horizon = getHorizon();
     const txToSubmit = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
-    const submitRes = await horizon.submitTransaction(txToSubmit);
+    const submitRes = await submitWithFallback(txToSubmit);
     const paymentTx = submitRes.hash;
 
     // 2. Verify Platform Balance
@@ -362,7 +363,7 @@ Return ONLY the JSON object.`;
 
       if (firstTry.status === 402) {
          // Create the payment on chain
-         const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+         const horizon = getHorizon();
          const account = await horizon.loadAccount(orchestratorKp.publicKey());
          const usdcAsset = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
          
@@ -375,25 +376,12 @@ Return ONLY the JSON object.`;
 
          tx.sign(orchestratorKp);
 
-         async function submitWithRetry(tx, maxRetries = 3) {
-           for (let i = 0; i < maxRetries; i++) {
-             try {
-               return await horizon.submitTransaction(tx);
-             } catch (err) {
-               if (err.response?.status === 504 && i < maxRetries - 1) {
-                 console.warn(`[x402] 504 retry ${i + 1}/${maxRetries} in ${(i+1)*2}s`);
-                 await new Promise(r => setTimeout(r, (i + 1) * 2000));
-               } else throw err;
-             }
-           }
-         }
-
          try {
-           const submitRes = await submitWithRetry(tx);
+           const submitRes = await submitWithFallback(tx);
            paymentTxId = submitRes.hash;
          } catch (txErr) {
-           console.warn(`[Orchestrator] Testnet RPC 504 Timeout bypassed after retries. Preserving demo flow.`);
-           paymentTxId = null; // Bypass final if absolutely dead
+           console.warn(`[Orchestrator] All RPCs failed for x402 payment. Preserving demo flow.`);
+           paymentTxId = null;
          }
          
          // Attach payment validation per x402 spec — inject mock if Horizon died so we survive
@@ -697,7 +685,7 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
     const platformKp = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY_2);
     let hashTxId = null;
     try {
-        const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+        const horizon = getHorizon();
         const account = await horizon.loadAccount(platformKp.publicKey());
         
         // Ensure name is <= 64 bytes
@@ -711,7 +699,7 @@ CRITICAL SYSTEM DIRECTIVES FOR THIS SPECIFIC RUN:
             })).setTimeout(30).build();
             
         tx.sign(platformKp);
-        const submitRes = await horizon.submitTransaction(tx);
+        const submitRes = await submitWithFallback(tx);
         hashTxId = submitRes.hash;
         
         session.onChainTxs++;

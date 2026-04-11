@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
 import { Keypair, Asset, TransactionBuilder, Networks, Horizon, Operation } from "@stellar/stellar-sdk";
+import { getHorizon, submitWithFallback } from "./stellar-rpc.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MONITORS_FILE = path.resolve(__dirname, "../../monitors.json");
@@ -97,7 +98,7 @@ export async function deactivateMonitor(id) {
       try {
         console.log(`[Refund] Refunding ${remaining.toFixed(4)} USDC to ${m.userId} for monitor ${m.id}`);
         const platformKeypair = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY_2);
-        const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+        const horizon = getHorizon();
         const platformAccount = await horizon.loadAccount(platformKeypair.publicKey());
         
         const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
@@ -116,7 +117,7 @@ export async function deactivateMonitor(id) {
         .build();
 
         tx.sign(platformKeypair);
-        await horizon.submitTransaction(tx);
+        await submitWithFallback(tx);
         console.log(`[Refund] Successfully refunded ${remaining.toFixed(4)} USDC to ${m.userId}`);
       } catch (err) {
         console.error(`[Refund] Failed to refund ${m.userId}:`, err.message);
