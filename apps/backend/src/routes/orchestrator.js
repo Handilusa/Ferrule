@@ -39,7 +39,7 @@ router.post("/preauth", async (req, res) => {
     const paymentAmount = budget ? String(budget) : "0.05";
     
     // Platform Funder Architecture: User pays the Orchestrator Wallet upfront
-    const platformPublicKey = Keypair.fromSecret(process.env.STELLAR_SECRET_KEY_2).publicKey();
+    const platformPublicKey = Keypair.fromSecret(process.env.ORCHESTRATOR_SECRET || process.env.ORCHESTRATOR_PRIVATE_KEY || process.env.STELLAR_SECRET_KEY_2).publicKey();
     const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
     const usdcAsset = new Asset("USDC", USDC_ISSUER);
 
@@ -61,6 +61,50 @@ router.post("/preauth", async (req, res) => {
   } catch (err) {
     console.error("Preauth error:", err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+// --- TELEGRAM POOL DELEGATION ---
+import { addPoolBalance } from "../services/telegram-pool.js";
+
+router.post("/telegram/delegate", async (req, res) => {
+  const { walletAddress, txHash, amount } = req.body;
+  
+  if (!walletAddress || !txHash || !amount) {
+    return res.status(400).json({ error: "Missing parameters" });
+  }
+
+  try {
+    const horizon = new Horizon.Server("https://horizon-testnet.stellar.org");
+    const txInfo = await horizon.transactions().transaction(txHash).call();
+    
+    if (!txInfo.successful) {
+      return res.status(400).json({ error: "Transaction failed on network" });
+    }
+
+    const operations = await txInfo.operations();
+    const paymentOp = operations.records.find(op => op.type === "payment" && op.source_account === walletAddress);
+
+    if (!paymentOp) {
+       return res.status(400).json({ error: "No matching payment operation found for this wallet" });
+    }
+
+    const platformPublicKey = Keypair.fromSecret(process.env.ORCHESTRATOR_SECRET || process.env.ORCHESTRATOR_PRIVATE_KEY || process.env.STELLAR_SECRET_KEY_2).publicKey();
+    
+    if (paymentOp.to !== platformPublicKey) {
+       return res.status(400).json({ error: "Payment not directed to internal orchestrator/platform wallet" });
+    }
+    
+    if (parseFloat(paymentOp.amount) < parseFloat(amount)) {
+       return res.status(400).json({ error: "Payment amount does not match requested amount" });
+    }
+
+    const newBalance = addPoolBalance(walletAddress, amount);
+    
+    res.json({ success: true, newBalance, txHash });
+  } catch (err) {
+    console.error("[Telegram Delegate] Validation Error:", err.message);
+    res.status(500).json({ error: "Could not validate transaction hash" });
   }
 });
 

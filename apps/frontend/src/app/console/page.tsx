@@ -20,6 +20,7 @@ import { TestnetFaucet } from "@/components/console/TestnetFaucet";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { MonitorSetup } from "@/components/console/MonitorSetup";
 import { MonitorPanel } from "@/components/console/MonitorPanel";
+import { TelegramPool } from "@/components/console/TelegramPool";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -388,8 +389,9 @@ export default function ConsolePage() {
             </div>
            ) : (
            <div className="grid lg:grid-cols-3 gap-6">
-             <div className="lg:col-span-1">
+             <div className="lg:col-span-1 flex flex-col gap-6">
                 <MonitorSetup backendUrl={BACKEND_URL} onMonitorCreated={() => setMonitorRefresh(r => r + 1)} />
+                <TelegramPool backendUrl={BACKEND_URL} />
              </div>
              <div className="lg:col-span-2">
                 <MonitorPanel backendUrl={BACKEND_URL} refreshTrigger={monitorRefresh} />

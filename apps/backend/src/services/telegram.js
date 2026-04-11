@@ -5,6 +5,7 @@ import { getMonitorsByUser, getMonitor, deactivateMonitor } from "./monitor-stor
 import { getPriceData } from "./price-feed.js";
 import { computeIndicators, buildMarketPrompt, detectSignal, rsiSignal } from "./technical-analysis.js";
 import { streamRiskAnalysis } from "./gemini.js";
+import { getPoolBalance, deductPoolBalance } from "./telegram-pool.js";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -294,9 +295,17 @@ export async function initBot() {
         return ctx.reply("❌ Invalid budget amount. Example: /analyze XLM 0.25");
       }
 
+      const balance = getPoolBalance(walletAddress);
+      if (balance < budget) {
+         return ctx.reply(`❌ Pool exhausted (${balance.toFixed(2)} USDC). Delegate funds at ferrule.app/console`);
+      }
+
       const msg = await ctx.reply(`⏳ Initiating ${budget} USDC payment for ${pair} analysis...`);
 
       try {
+        const deducted = deductPoolBalance(walletAddress, budget);
+        if (!deducted) throw new Error("Could not deduct from pool logically");
+
         const { Keypair, Asset, TransactionBuilder, Networks, Horizon, Operation } = await import("@stellar/stellar-sdk");
         
         const orchestratorSecret = process.env.ORCHESTRATOR_SECRET || process.env.ORCHESTRATOR_PRIVATE_KEY;
@@ -508,9 +517,22 @@ async function marketReportConversation(conversation, ctx) {
   await typeCtx.answerCallbackQuery();
 
   if (analysisType === "snapshot") {
-     const msg = await ctx.reply(`⏳ Contacting oracle and pulling OHLCV for ${pair}...`);
+     const walletAddress = users.get(ctx.from?.id);
+     if (!walletAddress) {
+        return ctx.reply("❌ You are not linked to any account.");
+     }
+     
+     const balance = getPoolBalance(walletAddress);
+     if (balance < 0.25) {
+        return ctx.reply(`❌ Pool exhausted (${balance.toFixed(2)} USDC). Delegate funds at ferrule.app/console`);
+     }
+     
+     const msg = await ctx.reply(`⏳ Consuming 0.25 USDC from pool...\nContacting oracle and pulling OHLCV for ${pair}...`);
      
      try {
+       const deducted = deductPoolBalance(walletAddress, 0.25);
+       if (!deducted) throw new Error("Could not deduct from pool.");
+
        console.log(`[Snapshot] Fetching OHLCV for ${pair}...`);
        const priceData = await getPriceData(pair);
        console.log(`[Snapshot] OHLCV OK:`, priceData?.current?.price);
